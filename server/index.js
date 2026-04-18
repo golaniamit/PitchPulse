@@ -22,8 +22,12 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.APP_URL].filter(Boolean)
+  : ['http://localhost:5173'];
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: allowedOrigins,
   credentials: true,
 }));
 app.use(express.json());
@@ -47,6 +51,15 @@ app.use('/api/feedback', feedbackRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+// Serve React frontend in production
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.join(__dirname, '../client/dist');
+  app.use(express.static(clientDist));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // WebSocket
 ws.init(server);
