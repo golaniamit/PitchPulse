@@ -1,7 +1,13 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-init so a missing key doesn't crash the server on startup
+let _resend = null;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
+
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const FROM = 'PitchPulse <onboarding@resend.dev>';
 
@@ -97,7 +103,7 @@ async function sendVerificationEmail({ to, username, displayName, token }) {
     return { id: 'dev-mode' };
   }
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: FROM,
     to,
     subject: 'Verify your PitchPulse account',
