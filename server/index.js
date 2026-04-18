@@ -61,6 +61,19 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Auto-create admin on first boot if no users exist
+async function ensureAdmin() {
+  const count = db.prepare('SELECT COUNT(*) as c FROM users WHERE is_bot = 0').get();
+  if (count.c === 0) {
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash('admin123', 10);
+    db.prepare('INSERT INTO users (username, password_hash, balance, is_admin, is_verified) VALUES (?, ?, ?, 1, 1)')
+      .run('admin', hash, 10000);
+    console.log('✅ Admin account created: admin / admin123 — change password after first login');
+  }
+}
+ensureAdmin().catch(console.error);
+
 // WebSocket
 ws.init(server);
 
