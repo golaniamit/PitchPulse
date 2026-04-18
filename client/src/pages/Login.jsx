@@ -277,11 +277,6 @@ export default function Login() {
             </button>
           </form>
 
-          {mode === 'login' && (
-            <p className="text-center text-xs text-gray-400 mt-4">
-              Demo: <strong>admin</strong> / admin123 &nbsp;|&nbsp; <strong>testuser1</strong> / pass123
-            </p>
-          )}
         </div>
       </div>
     </div>
