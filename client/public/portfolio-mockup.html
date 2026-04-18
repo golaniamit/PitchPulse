@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>My Bets Mockup — IPL Market</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; }
+
+  nav {
+    background: #1a1a2e; padding: 0 16px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo { color: white; font-weight: 700; font-size: 18px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
+  .balance { background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 999px; color: white; font-size: 13px; font-weight: 600; }
+
+  .page { max-width: 480px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  /* Summary bar */
+  .summary {
+    background: #1a1a2e; border-radius: 16px; padding: 20px;
+    margin-bottom: 20px; color: white;
+  }
+  .summary-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .summary-balance { font-size: 28px; font-weight: 800; }
+  .summary-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
+  .summary-pills { display: flex; gap: 8px; }
+  .pill {
+    flex: 1; background: rgba(255,255,255,0.07); border-radius: 10px;
+    padding: 10px 12px; text-align: center;
+  }
+  .pill-val { font-size: 16px; font-weight: 700; }
+  .pill-label { font-size: 10px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+  .green { color: #4ade80; }
+  .red { color: #f87171; }
+
+  /* Section header */
+  .section-header { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+
+  /* Bet card */
+  .bet-card {
+    background: white; border-radius: 16px; border: 1px solid #e5e7eb;
+    margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .bet-card-top { padding: 14px 14px 12px; }
+  .bet-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .bet-title { font-size: 13px; font-weight: 600; color: #111827; line-height: 1.4; flex: 1; padding-right: 8px; }
+  .side-badge {
+    font-size: 11px; font-weight: 700; padding: 2px 10px;
+    border-radius: 999px; flex-shrink: 0;
+  }
+  .yes-badge { background: #dcfce7; color: #166534; }
+  .no-badge { background: #fee2e2; color: #991b1b; }
+
+  /* Stats row */
+  .stats-row { display: flex; gap: 6px; margin-bottom: 12px; }
+  .stat-box {
+    flex: 1; background: #f9fafb; border-radius: 10px;
+    padding: 8px 10px; text-align: center;
+  }
+  .stat-val { font-size: 14px; font-weight: 700; color: #111827; }
+  .stat-val.up { color: #16a34a; }
+  .stat-val.down { color: #dc2626; }
+  .stat-label { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+
+  /* Market sentiment mini bar */
+  .mini-sentiment { margin-bottom: 12px; }
+  .mini-bar-row { display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; margin-bottom: 3px; }
+  .mini-bar-bg { height: 4px; background: #f3f4f6; border-radius: 999px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; background: linear-gradient(90deg, #2e7d32, #4caf50); border-radius: 999px; }
+
+  /* Settle strip */
+  .settle-strip {
+    border-top: 1px solid #f3f4f6;
+    padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: #fafafa;
+  }
+  .settle-info { font-size: 12px; color: #6b7280; }
+  .settle-pnl { font-size: 13px; font-weight: 700; }
+  .settle-pnl.up { color: #16a34a; }
+  .settle-pnl.down { color: #dc2626; }
+  .settle-btn {
+    padding: 7px 14px; border-radius: 10px; font-size: 12px;
+    font-weight: 700; border: none; cursor: pointer; white-space: nowrap;
+  }
+  .settle-btn-up { background: #dcfce7; color: #166534; }
+  .settle-btn-down { background: #fee2e2; color: #991b1b; }
+  .settle-btn-neutral { background: #f3f4f6; color: #374151; }
+
+  /* Resolved card */
+  .resolved-card {
+    background: white; border-radius: 16px; border: 1px solid #e5e7eb;
+    margin-bottom: 10px; padding: 12px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    opacity: 0.8;
+  }
+  .resolved-left { flex: 1; padding-right: 12px; }
+  .resolved-title { font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 4px; }
+  .resolved-meta { font-size: 11px; color: #9ca3af; }
+  .resolved-pnl { font-size: 16px; font-weight: 800; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">🏏 IPL Market</span>
+  <div class="nav-right">
+    <div class="dot"></div>
+    <div class="balance">🪙 730</div>
+    <span style="color:rgba(255,255,255,0.5);font-size:13px;">testuser1 ↗</span>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- Summary -->
+  <div class="summary">
+    <div class="summary-top">
+      <div>
+        <p class="summary-label">Wallet balance</p>
+        <p class="summary-balance">🪙 730</p>
+      </div>
+      <div style="text-align:right;">
+        <p class="summary-label">Started with</p>
+        <p style="font-size:16px;font-weight:700;color:rgba(255,255,255,0.6);">🪙 1,000</p>
+      </div>
+    </div>
+    <div class="summary-pills">
+      <div class="pill">
+        <div class="pill-val green">+185</div>
+        <div class="pill-label">If all win</div>
+      </div>
+      <div class="pill">
+        <div class="pill-val red">−270</div>
+        <div class="pill-label">If all lose</div>
+      </div>
+      <div class="pill">
+        <div class="pill-val" style="color:rgba(255,255,255,0.8);">3</div>
+        <div class="pill-label">Open bets</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Open bets -->
+  <p class="section-header">My open bets</p>
+
+  <!-- Bet 1 — winning position (settle for profit) -->
+  <div class="bet-card">
+    <div class="bet-card-top">
+      <div class="bet-header">
+        <p class="bet-title">Will MI score 8+ runs in over 6?</p>
+        <span class="side-badge yes-badge">YES ×3</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-val">55¢</div>
+          <div class="stat-label">Bought at</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val up">+135</div>
+          <div class="stat-label">Win 🪙</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val down">−165</div>
+          <div class="stat-label">Lose 🪙</div>
+        </div>
+      </div>
+      <div class="mini-sentiment">
+        <div class="mini-bar-row">
+          <span>Market sentiment</span>
+          <span>65% on YES</span>
+        </div>
+        <div class="mini-bar-bg"><div class="mini-bar-fill" style="width:65%"></div></div>
+      </div>
+    </div>
+    <div class="settle-strip">
+      <div>
+        <div class="settle-info">Settle now at 65¢</div>
+        <div class="settle-pnl up">+30 🪙 vs your stake</div>
+      </div>
+      <button class="settle-btn settle-btn-up">Cash out +30</button>
+    </div>
+  </div>
+
+  <!-- Bet 2 — losing position (settle for loss) -->
+  <div class="bet-card">
+    <div class="bet-card-top">
+      <div class="bet-header">
+        <p class="bet-title">Will Rohit Sharma score 30+ by over 10?</p>
+        <span class="side-badge yes-badge">YES ×2</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-val">60¢</div>
+          <div class="stat-label">Bought at</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val up">+80</div>
+          <div class="stat-label">Win 🪙</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val down">−120</div>
+          <div class="stat-label">Lose 🪙</div>
+        </div>
+      </div>
+      <div class="mini-sentiment">
+        <div class="mini-bar-row">
+          <span>Market sentiment</span>
+          <span>38% on YES</span>
+        </div>
+        <div class="mini-bar-bg"><div class="mini-bar-fill" style="width:38%"></div></div>
+      </div>
+    </div>
+    <div class="settle-strip">
+      <div>
+        <div class="settle-info">Settle now at 38¢</div>
+        <div class="settle-pnl down">−44 🪙 vs your stake</div>
+      </div>
+      <button class="settle-btn settle-btn-down">Cut loss −44</button>
+    </div>
+  </div>
+
+  <!-- Bet 3 — NO position, roughly breakeven -->
+  <div class="bet-card">
+    <div class="bet-card-top">
+      <div class="bet-header">
+        <p class="bet-title">Will KKR win the toss?</p>
+        <span class="side-badge no-badge">NO ×4</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-val">48¢</div>
+          <div class="stat-label">Bought at</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val up">+208</div>
+          <div class="stat-label">Win 🪙</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val down">−192</div>
+          <div class="stat-label">Lose 🪙</div>
+        </div>
+      </div>
+      <div class="mini-sentiment">
+        <div class="mini-bar-row">
+          <span>Market sentiment</span>
+          <span>53% on YES</span>
+        </div>
+        <div class="mini-bar-bg"><div class="mini-bar-fill" style="width:53%"></div></div>
+      </div>
+    </div>
+    <div class="settle-strip">
+      <div>
+        <div class="settle-info">Settle now at 47¢</div>
+        <div class="settle-pnl down">−4 🪙 vs your stake</div>
+      </div>
+      <button class="settle-btn settle-btn-neutral">Settle −4</button>
+    </div>
+  </div>
+
+  <!-- Resolved history -->
+  <p class="section-header" style="margin-top:8px;">Settled history</p>
+
+  <div class="resolved-card">
+    <div class="resolved-left">
+      <p class="resolved-title">Will CSK score 10+ runs in over 5?</p>
+      <p class="resolved-meta">YES ×2 · Settled YES ✓</p>
+    </div>
+    <div class="resolved-pnl green">+90 🪙</div>
+  </div>
+
+  <div class="resolved-card">
+    <div class="resolved-left">
+      <p class="resolved-title">Will there be a wicket in over 3?</p>
+      <p class="resolved-meta">NO ×1 · Settled YES ✗</p>
+    </div>
+    <div class="resolved-pnl red">−45 🪙</div>
+  </div>
+
+</div>
+</body>
+</html>

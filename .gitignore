@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Environment variables — never commit these
+.env
+
+# Database — stays local, Railway gets its own
+market.db
+*.db-shm
+*.db-wal
+
+# Build output
+client/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+
+# Claude Code internals
+.claude/
+
+# Misc
+cookies.txt
+tmp_*.json

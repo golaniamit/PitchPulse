@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Card Mockup — IPL Market</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; }
+
+  nav {
+    background: #1a1a2e; padding: 0 16px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .nav-left { display: flex; align-items: center; gap: 24px; }
+  .logo { color: white; font-weight: 700; font-size: 18px; }
+  .nav-link { color: rgba(255,255,255,0.5); font-size: 14px; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
+  .balance { background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 999px; color: white; font-size: 13px; font-weight: 600; }
+  .username { color: rgba(255,255,255,0.5); font-size: 13px; }
+
+  .page { max-width: 480px; margin: 0 auto; padding: 20px 16px 48px; }
+  .section-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .new-label { font-size: 12px; font-weight: 700; color: #6366f1; margin-bottom: 6px; }
+
+  /* Card */
+  .card { background: white; border-radius: 16px; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .card-title { font-size: 14px; font-weight: 600; color: #111827; line-height: 1.45; flex: 1; padding-right: 8px; }
+  .badge { background: #dcfce7; color: #166534; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+
+  /* Prob bar */
+  .prob-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .yes-label { font-weight: 600; color: #2e7d32; }
+  .no-label { font-weight: 600; color: #c62828; }
+  .bar-bg { height: 6px; background: #f3f4f6; border-radius: 999px; overflow: hidden; margin-bottom: 14px; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, #2e7d32, #4caf50); border-radius: 999px; }
+
+  /* OLD design buttons */
+  .old-btns { display: flex; gap: 8px; }
+  .btn-yes-old, .btn-no-old {
+    flex: 1; padding: 10px; border-radius: 12px; color: white;
+    font-weight: 700; font-size: 13px; border: none; cursor: pointer;
+  }
+  .btn-yes-old { background: #2e7d32; }
+  .btn-no-old { background: #c62828; }
+
+  /* Stake chips */
+  .stake-label { font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 6px; }
+  .chips { display: flex; gap: 6px; margin-bottom: 14px; }
+  .chip {
+    flex: 1; padding: 7px 0; border-radius: 8px; font-size: 12px;
+    font-weight: 600; border: 1.5px solid #e5e7eb; background: white;
+    color: #6b7280; cursor: pointer; text-align: center; transition: all .15s;
+  }
+  .chip.active { border-color: #1a1a2e; background: #1a1a2e; color: white; }
+
+  /* NEW bet buttons */
+  .bet-btns { display: flex; gap: 8px; }
+  .btn-bet {
+    flex: 1; border-radius: 12px; color: white; border: none;
+    cursor: pointer; overflow: hidden; text-align: center;
+  }
+  .btn-bet-yes { background: #2e7d32; }
+  .btn-bet-no { background: #c62828; }
+  .btn-top { padding: 10px 8px 5px; font-size: 13px; font-weight: 700; }
+  .btn-bottom { padding: 4px 8px 9px; font-size: 11px; background: rgba(0,0,0,0.15); }
+  .btn-win { font-weight: 700; font-size: 14px; }
+  .stake-note { text-align: center; font-size: 10px; color: #9ca3af; margin-top: 8px; }
+
+  .divider { height: 1px; background: #e5e7eb; margin: 20px 0; }
+  .compare-label {
+    text-align: center; font-size: 11px; font-weight: 600;
+    color: #6b7280; text-transform: uppercase; letter-spacing: .06em;
+    margin-bottom: 20px;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <span class="logo">🏏 IPL Market</span>
+    <span class="nav-link">Markets</span>
+    <span class="nav-link">Portfolio</span>
+  </div>
+  <div class="nav-right">
+    <div class="dot"></div>
+    <div class="balance">🪙 850</div>
+    <span class="username">testuser1 ↗</span>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- COMPARISON LABEL -->
+  <p class="compare-label">← side by side comparison →</p>
+
+  <!-- OLD -->
+  <p class="section-label">Current design</p>
+  <div class="card">
+    <div class="card-header">
+      <p class="card-title">Will MI score 8+ runs in over 6?</p>
+      <span class="badge">active</span>
+    </div>
+    <div class="prob-row">
+      <span class="yes-label">55¢ YES</span>
+      <span class="no-label">45¢ NO</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" style="width:55%"></div></div>
+    <p style="text-align:center;font-size:11px;color:#9ca3af;margin-bottom:12px;margin-top:-10px;">55% implied probability</p>
+    <div class="old-btns">
+      <button class="btn-yes-old">Buy YES · 55¢</button>
+      <button class="btn-no-old">Buy NO · 45¢</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- NEW -->
+  <p class="new-label">✦ New design</p>
+  <div class="card">
+    <div class="card-header">
+      <p class="card-title">Will MI score 8+ runs in over 6?</p>
+      <span class="badge">active</span>
+    </div>
+    <div class="prob-row">
+      <span class="yes-label">YES · 55%</span>
+      <span class="no-label">NO · 45%</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" style="width:55%"></div></div>
+
+    <p class="stake-label">Your stake</p>
+    <div class="chips">
+      <div class="chip" onclick="selectChip(this, 50, 55, 45)">50</div>
+      <div class="chip active" onclick="selectChip(this, 100, 55, 45)">100</div>
+      <div class="chip" onclick="selectChip(this, 200, 55, 45)">200</div>
+      <div class="chip" onclick="selectChip(this, 500, 55, 45)">500</div>
+    </div>
+    <div class="bet-btns" id="card1-btns">
+      <button class="btn-bet btn-bet-yes">
+        <div class="btn-top">Bet YES</div>
+        <div class="btn-bottom">win <span class="btn-win">🪙 182</span></div>
+      </button>
+      <button class="btn-bet btn-bet-no">
+        <div class="btn-top">Bet NO</div>
+        <div class="btn-bottom">win <span class="btn-win">🪙 222</span></div>
+      </button>
+    </div>
+    <p class="stake-note" id="card1-note">Stake 100 coins · returns if correct</p>
+  </div>
+
+  <!-- Second new card -->
+  <div class="card">
+    <div class="card-header">
+      <p class="card-title">Will Rohit Sharma score 30+ by over 10?</p>
+      <span class="badge">active</span>
+    </div>
+    <div class="prob-row">
+      <span class="yes-label">YES · 38%</span>
+      <span class="no-label">NO · 62%</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" style="width:38%"></div></div>
+
+    <p class="stake-label">Your stake</p>
+    <div class="chips">
+      <div class="chip" onclick="selectChip2(this, 50, 38, 62)">50</div>
+      <div class="chip active" onclick="selectChip2(this, 100, 38, 62)">100</div>
+      <div class="chip" onclick="selectChip2(this, 200, 38, 62)">200</div>
+      <div class="chip" onclick="selectChip2(this, 500, 38, 62)">500</div>
+    </div>
+    <div class="bet-btns" id="card2-btns">
+      <button class="btn-bet btn-bet-yes">
+        <div class="btn-top">Bet YES</div>
+        <div class="btn-bottom">win <span class="btn-win">🪙 263</span></div>
+      </button>
+      <button class="btn-bet btn-bet-no">
+        <div class="btn-top">Bet NO</div>
+        <div class="btn-bottom">win <span class="btn-win">🪙 161</span></div>
+      </button>
+    </div>
+    <p class="stake-note" id="card2-note">Stake 100 coins · returns if correct</p>
+  </div>
+
+</div>
+
+<script>
+function payout(stake, prob) {
+  return Math.round(stake / (prob / 100));
+}
+
+function selectChip(el, stake, yesProb, noProb) {
+  el.closest('.chips').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const btns = document.getElementById('card1-btns');
+  btns.querySelector('.btn-bet-yes .btn-win').textContent = '🪙 ' + payout(stake, yesProb);
+  btns.querySelector('.btn-bet-no .btn-win').textContent = '🪙 ' + payout(stake, noProb);
+  document.getElementById('card1-note').textContent = 'Stake ' + stake + ' coins · returns if correct';
+}
+
+function selectChip2(el, stake, yesProb, noProb) {
+  el.closest('.chips').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const btns = document.getElementById('card2-btns');
+  btns.querySelector('.btn-bet-yes .btn-win').textContent = '🪙 ' + payout(stake, yesProb);
+  btns.querySelector('.btn-bet-no .btn-win').textContent = '🪙 ' + payout(stake, noProb);
+  document.getElementById('card2-note').textContent = 'Stake ' + stake + ' coins · returns if correct';
+}
+</script>
+</body>
+</html>

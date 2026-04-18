@@ -1,0 +1,289 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import PitchPulseLogo from '../components/PitchPulseLogo';
+
+export default function Login() {
+  const { login, register, resendVerification } = useAuth();
+  const navigate = useNavigate();
+  const [mode, setMode] = useState('login');
+
+  // Form fields
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // UI state
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Post-register: show "check your email" screen
+  const [pendingEmail, setPendingEmail] = useState(null);
+  const [resendStatus, setResendStatus] = useState(null); // null | 'sending' | 'sent' | 'error'
+
+  // Unverified login: show resend prompt
+  const [unverifiedEmail, setUnverifiedEmail] = useState(null);
+
+  function switchMode(m) {
+    setMode(m);
+    setError('');
+    setConfirmPassword('');
+    setUnverifiedEmail(null);
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+
+    if (mode === 'register' && password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === 'login') {
+        await login(username, password);
+        navigate('/');
+      } else {
+        const result = await register(username, password, displayName.trim() || undefined, email.trim());
+        if (result.requiresVerification) {
+          setPendingEmail(result.email);
+        }
+      }
+    } catch (err) {
+      // Unverified account trying to log in
+      if (err.requiresVerification || err.message?.includes('verify your email')) {
+        setUnverifiedEmail(err.email || email.trim());
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend(emailAddr) {
+    setResendStatus('sending');
+    try {
+      await resendVerification(emailAddr);
+      setResendStatus('sent');
+    } catch {
+      setResendStatus('error');
+    }
+  }
+
+  // Special handling: login returns 403 with extra fields
+  async function loginWithVerificationCheck(username, password) {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      if (data.requiresVerification) {
+        setUnverifiedEmail(data.email);
+        setLoading(false);
+        return;
+      }
+      throw new Error(data.error);
+    }
+  }
+
+  const canSubmit = username && password && (mode === 'login' || (email && confirmPassword));
+  const pwMismatch = mode === 'register' && confirmPassword && confirmPassword !== password;
+
+  const inputCls = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy-800 transition-colors";
+
+  // ── "Check your email" screen ──────────────────────────────────
+  if (pendingEmail) {
+    return (
+      <div className="min-h-screen bg-navy-800 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="flex justify-center mb-8">
+            <PitchPulseLogo size={40} showWordmark={true} dark={true} />
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-xl text-center">
+            <div className="text-5xl mb-4">📬</div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Check your email</h2>
+            <p className="text-gray-500 text-sm leading-relaxed mb-2">
+              We've sent a verification link to
+            </p>
+            <p className="font-semibold text-gray-800 mb-4">{pendingEmail}</p>
+            <p className="text-gray-400 text-xs mb-6">
+              Click the link in the email to activate your account. Check your spam folder if you don't see it.
+            </p>
+
+            <div className="border-t border-gray-100 pt-5">
+              <p className="text-xs text-gray-400 mb-3">Didn't get it?</p>
+              {resendStatus === 'sent' ? (
+                <p className="text-green-600 text-sm font-medium">✓ Resent! Check your inbox.</p>
+              ) : (
+                <button
+                  onClick={() => handleResend(pendingEmail)}
+                  disabled={resendStatus === 'sending'}
+                  className="text-sm font-semibold text-navy-800 hover:underline disabled:opacity-50"
+                >
+                  {resendStatus === 'sending' ? 'Sending…' : 'Resend verification email'}
+                </button>
+              )}
+              {resendStatus === 'error' && (
+                <p className="text-red-500 text-xs mt-2">Failed to resend. Try again in a moment.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main login / register form ─────────────────────────────────
+  return (
+    <div className="min-h-screen bg-navy-800 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8 gap-4">
+          <div className="rounded-3xl p-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <PitchPulseLogo size={72} showWordmark={false} dark={true} />
+          </div>
+          <PitchPulseLogo size={40} showWordmark={true} dark={true} />
+          <p className="text-white/50 text-xs tracking-widest uppercase">Predict · Trade · Win</p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-xl">
+          {/* Login / Register toggle */}
+          <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
+            <button
+              className={`flex-1 py-2 text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-navy-800 text-white' : 'text-gray-500'}`}
+              onClick={() => switchMode('login')}
+            >Login</button>
+            <button
+              className={`flex-1 py-2 text-sm font-semibold transition-colors ${mode === 'register' ? 'bg-navy-800 text-white' : 'text-gray-500'}`}
+              onClick={() => switchMode('register')}
+            >Register</button>
+          </div>
+
+          {/* Unverified account warning */}
+          {unverifiedEmail && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm">
+              <p className="font-semibold text-amber-800 mb-1">Email not verified yet</p>
+              <p className="text-amber-700 text-xs mb-3">
+                Check your inbox at <strong>{unverifiedEmail}</strong> for the verification link.
+              </p>
+              {resendStatus === 'sent' ? (
+                <p className="text-green-600 text-xs font-medium">✓ Resent successfully.</p>
+              ) : (
+                <button
+                  onClick={() => handleResend(unverifiedEmail)}
+                  disabled={resendStatus === 'sending'}
+                  className="text-xs font-bold text-amber-800 underline disabled:opacity-50"
+                >
+                  {resendStatus === 'sending' ? 'Sending…' : 'Resend verification email'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <form onSubmit={submit} className="space-y-3">
+
+            {/* Display name — register only */}
+            {mode === 'register' && (
+              <div>
+                <label className="text-xs text-gray-500 font-medium block mb-1">
+                  Display name <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  className={inputCls}
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="e.g. Rahul · shown on leaderboard"
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {/* Username */}
+            <div>
+              <label className="text-xs text-gray-500 font-medium block mb-1">Username</label>
+              <input
+                className={inputCls}
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="e.g. dhoni_fan"
+                autoFocus={mode === 'login'}
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+            </div>
+
+            {/* Email — register only */}
+            {mode === 'register' && (
+              <div>
+                <label className="text-xs text-gray-500 font-medium block mb-1">Email address</label>
+                <input
+                  type="email"
+                  className={inputCls}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                />
+                <p className="text-xs text-gray-400 mt-1">We'll send a verification link here</p>
+              </div>
+            )}
+
+            {/* Password */}
+            <div>
+              <label className="text-xs text-gray-500 font-medium block mb-1">Password</label>
+              <input
+                type="password"
+                className={inputCls}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••"
+              />
+            </div>
+
+            {/* Confirm password — register only */}
+            {mode === 'register' && (
+              <div>
+                <label className="text-xs text-gray-500 font-medium block mb-1">Confirm password</label>
+                <input
+                  type="password"
+                  className={`${inputCls} ${pwMismatch ? 'border-red-300 ring-1 ring-red-300' : ''}`}
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="••••••"
+                />
+                {pwMismatch && (
+                  <p className="text-xs text-red-500 mt-1">Passwords don't match</p>
+                )}
+              </div>
+            )}
+
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading || !canSubmit || pwMismatch}
+              className="w-full bg-navy-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-navy-700 transition-colors disabled:opacity-50 mt-1"
+            >
+              {loading ? '…' : mode === 'login' ? 'Login' : 'Create Account'}
+            </button>
+          </form>
+
+          {mode === 'login' && (
+            <p className="text-center text-xs text-gray-400 mt-4">
+              Demo: <strong>admin</strong> / admin123 &nbsp;|&nbsp; <strong>testuser1</strong> / pass123
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

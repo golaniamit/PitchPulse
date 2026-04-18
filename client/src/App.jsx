@@ -1,0 +1,59 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import { ThemeProvider } from './context/ThemeContext';
+import Navbar from './components/Navbar';
+import Login from './pages/Login';
+import Home from './pages/Home';
+import Contract from './pages/Contract';
+import Portfolio from './pages/Portfolio';
+import Leaderboard from './pages/Leaderboard';
+import Admin from './pages/Admin';
+import Feedback from './pages/Feedback';
+import Verify from './pages/Verify';
+
+function AppShell() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  // Verify page must be reachable before login
+  if (window.location.pathname === '/verify') return <Verify />;
+
+  if (!user) return <Login />;
+
+  return (
+    <SocketProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/contract/:id" element={<Contract />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
+    </SocketProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </ThemeProvider>
+    </BrowserRouter>
+  );
+}

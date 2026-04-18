@@ -1,0 +1,63 @@
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
+const express = require('express');
+const http = require('http');
+const session = require('express-session');
+const cors = require('cors');
+const path = require('path');
+
+const db = require('./db');
+const ws = require('./websocket');
+const { startBots } = require('./engine/bots');
+const { startResolver } = require('./engine/resolver');
+
+const authRoutes = require('./routes/auth');
+const contractRoutes = require('./routes/contracts');
+const orderRoutes = require('./routes/orders');
+const userRoutes = require('./routes/users');
+const adminRoutes = require('./routes/admin');
+const feedbackRoutes = require('./routes/feedback');
+
+const app = express();
+const server = http.createServer(app);
+
+// Middleware
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(express.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'fallback_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  },
+}));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/contracts', contractRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/feedback', feedbackRoutes);
+
+// Health check
+app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+// WebSocket
+ws.init(server);
+
+// Start bots and resolver
+if (process.env.ENABLE_BOTS === 'true') {
+  startBots();
+}
+startResolver();
+
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`IPL Market server running on http://localhost:${PORT}`);
+});
