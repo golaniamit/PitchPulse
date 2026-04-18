@@ -1,11 +1,19 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 // In production, use /data volume (Railway persistent storage)
 // In dev, use local market.db
 const DB_PATH = process.env.NODE_ENV === 'production'
   ? '/data/market.db'
   : path.join(__dirname, '..', 'market.db');
+
+// Create directory if it doesn't exist (needed on first Railway boot)
+const DB_DIR = path.dirname(DB_PATH);
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+}
+
 const db = new Database(DB_PATH);
 
 // Enable WAL mode for better concurrent read performance
