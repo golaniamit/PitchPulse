@@ -2,6 +2,9 @@
   "name": "ipl-market",
   "version": "1.0.0",
   "description": "IPL Prediction Market App",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "node server/index.js",
