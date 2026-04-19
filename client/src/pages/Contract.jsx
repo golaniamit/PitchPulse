@@ -79,18 +79,13 @@ export default function Contract() {
             {contract.status}{contract.resolution ? ` · ${contract.resolution}` : ''}
           </span>
         </div>
-        {contract.status === 'draft' ? (
+        {contract.status === 'draft' && (
           <div className="flex items-center gap-2 py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
             <span className="text-base">🕐</span>
             <div>
               <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Market not yet open</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">This contract hasn't been activated — no price data yet</p>
             </div>
-          </div>
-        ) : (
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">{contract.current_price}%</span>
-            <span className="text-sm text-gray-400 dark:text-gray-400 font-semibold">on YES</span>
           </div>
         )}
       </div>
