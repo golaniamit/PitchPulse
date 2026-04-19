@@ -117,9 +117,14 @@ try { db.exec(`ALTER TABLE users ADD COLUMN verify_token TEXT`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN verify_token_expires INTEGER`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires INTEGER`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN tour_seen INTEGER DEFAULT 0`); } catch (_) {}
 
 // Grandfather only old accounts (no email = created before verification was added)
 // Never touch new registrations that are intentionally unverified
 db.exec(`UPDATE users SET is_verified = 1 WHERE email IS NULL`);
+
+// ONE-SHOT: reset all users' tour so they see the updated onboarding tour on next login.
+// REMOVE THIS LINE AND REDEPLOY after Railway has booted once with it in place.
+db.exec(`UPDATE users SET tour_seen = 0`);
 
 module.exports = db;
