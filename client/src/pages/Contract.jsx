@@ -78,33 +78,45 @@ export default function Contract() {
             {contract.status}{contract.resolution ? ` · ${contract.resolution}` : ''}
           </span>
         </div>
-        {/* Sentiment bar + big % */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="font-semibold text-yes">YES {contract.current_price}%</span>
-              <span className="font-semibold text-no">NO {100 - contract.current_price}%</span>
+        {/* Sentiment bar + big % — only show for active/resolved (drafts have no real price data) */}
+        {contract.status === 'draft' ? (
+          <div className="flex items-center gap-2 py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+            <span className="text-base">🕐</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Market not yet open</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">This contract hasn't been activated — no price data yet</p>
             </div>
-            <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-yes to-yes-light rounded-full transition-all duration-500"
-                style={{ width: `${contract.current_price}%` }}
-              />
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-semibold text-yes">YES {contract.current_price}%</span>
+                <span className="font-semibold text-no">NO {100 - contract.current_price}%</span>
+              </div>
+              <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-yes to-yes-light rounded-full transition-all duration-500"
+                  style={{ width: `${contract.current_price}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Market sentiment</p>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Market sentiment</p>
+            <div className="text-right flex-shrink-0">
+              <div className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">{contract.current_price}%</div>
+              <div className="text-xs text-gray-400 dark:text-gray-500">on YES</div>
+            </div>
           </div>
-          <div className="text-right flex-shrink-0">
-            <div className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">{contract.current_price}%</div>
-            <div className="text-xs text-gray-400 dark:text-gray-500">on YES</div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-        <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-3">Price History</h2>
-        <PriceChart history={history} contractId={id} onPriceUpdate={handleChartUpdate} />
-      </div>
+      {/* Chart — only render for non-draft contracts */}
+      {contract.status !== 'draft' && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
+          <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-3">Price History</h2>
+          <PriceChart history={history} contractId={id} onPriceUpdate={handleChartUpdate} />
+        </div>
+      )}
 
       {/* Order Book */}
       <div>

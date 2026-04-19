@@ -32,11 +32,19 @@ export default function Home({ openTour }) {
       }),
       on('price_update', (msg) => {
         setContracts(cs => cs.map(c =>
-          c.id === msg.contractId ? { ...c, current_price: msg.price } : c
+          c.id === msg.contractId ? { ...c, current_price: msg.price, has_trades: true } : c
         ));
       }),
       on('contract_updated', (msg) => {
         setContracts(cs => cs.map(c => c.id === msg.contract.id ? msg.contract : c));
+      }),
+      on('orderbook_update', (msg) => {
+        setContracts(cs => cs.map(c => {
+          if (c.id !== msg.contractId) return c;
+          const best_yes_bid = msg.bids.length > 0 ? msg.bids[0].price : null;
+          const best_no_bid  = msg.asks.length > 0 ? msg.asks[0].price : null;
+          return { ...c, best_yes_bid, best_no_bid };
+        }));
       }),
     ];
     return () => unsubs.forEach(fn => fn?.());

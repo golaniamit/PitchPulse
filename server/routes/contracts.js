@@ -5,6 +5,20 @@ const { broadcast } = require('../websocket');
 
 const router = express.Router();
 
+// Enrich a contract row with live order book state
+const bestYesBidStmt = db.prepare("SELECT MAX(price) as best FROM orders WHERE contract_id = ? AND side = 'YES' AND status IN ('open','partial')");
+const bestNoBidStmt  = db.prepare("SELECT MAX(price) as best FROM orders WHERE contract_id = ? AND side = 'NO'  AND status IN ('open','partial')");
+const hasTradesStmt  = db.prepare("SELECT COUNT(*) as cnt FROM trades WHERE contract_id = ?");
+
+function enrichContract(c) {
+  return {
+    ...c,
+    best_yes_bid: bestYesBidStmt.get(c.id)?.best ?? null,
+    best_no_bid:  bestNoBidStmt.get(c.id)?.best  ?? null,
+    has_trades:   hasTradesStmt.get(c.id).cnt > 0,
+  };
+}
+
 // List contracts (with filter)
 router.get('/', requireAuth, (req, res) => {
   const { status } = req.query;
@@ -15,7 +29,7 @@ router.get('/', requireAuth, (req, res) => {
     params.push(status);
   }
   query += ' ORDER BY c.created_at DESC';
-  const contracts = db.prepare(query).all(...params);
+  const contracts = db.prepare(query).all(...params).map(enrichContract);
   res.json({ contracts });
 });
 
@@ -23,7 +37,7 @@ router.get('/', requireAuth, (req, res) => {
 router.get('/:id', requireAuth, (req, res) => {
   const contract = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
-  res.json({ contract });
+  res.json({ contract: enrichContract(contract) });
 });
 
 // Create contract (admin only)

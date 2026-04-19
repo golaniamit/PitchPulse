@@ -39,10 +39,17 @@ export default function TradePanel({ contract, onTraded }) {
   }
 
   if (contract.status !== 'active') {
+    const messages = {
+      draft: { icon: '🕐', title: 'Not yet open for trading', sub: 'The admin will activate this market soon' },
+      resolved: { icon: contract.resolution === 'YES' ? '✅' : '❌', title: `Settled ${contract.resolution}`, sub: 'This market has closed' },
+      cancelled: { icon: '🚫', title: 'Cancelled', sub: 'This market was cancelled' },
+    };
+    const msg = messages[contract.status] || { icon: '⏸', title: `Contract is ${contract.status}`, sub: '' };
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 text-center text-sm text-gray-400 dark:text-gray-500">
-        Contract is {contract.status}
-        {contract.resolution ? ` · Settled ${contract.resolution}` : ''}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 text-center space-y-1">
+        <div className="text-2xl">{msg.icon}</div>
+        <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{msg.title}</p>
+        {msg.sub && <p className="text-xs text-gray-400 dark:text-gray-500">{msg.sub}</p>}
       </div>
     );
   }
