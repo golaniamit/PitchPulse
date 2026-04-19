@@ -55,7 +55,7 @@ export default function Home({ openTour, tourActive }) {
   // Live updates
   useEffect(() => {
     const unsubs = [
-      on('contract_created', (msg) => setContracts(cs => [msg.contract, ...cs])),
+      on('contract_created', (msg) => setContracts(cs => cs.some(c => c.id === msg.contract.id) ? cs : [msg.contract, ...cs])),
       on('contract_resolved', (msg) => {
         setContracts(cs => cs.map(c =>
           c.id === msg.contractId ? { ...c, status: 'resolved', resolution: msg.resolution } : c
@@ -67,7 +67,11 @@ export default function Home({ openTour, tourActive }) {
         ));
       }),
       on('contract_updated', (msg) => {
-        setContracts(cs => cs.map(c => c.id === msg.contract.id ? msg.contract : c));
+        setContracts(cs => {
+          const exists = cs.some(c => c.id === msg.contract.id);
+          if (exists) return cs.map(c => c.id === msg.contract.id ? msg.contract : c);
+          return [msg.contract, ...cs];
+        });
       }),
       on('orderbook_update', (msg) => {
         setContracts(cs => cs.map(c => {

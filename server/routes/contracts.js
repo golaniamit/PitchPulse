@@ -63,16 +63,14 @@ router.post('/', requireAdmin, (req, res) => {
     req.session.userId
   );
 
-  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(result.lastInsertRowid);
+  const contract = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(result.lastInsertRowid);
 
   // Add initial price history point
   db.prepare('INSERT INTO price_history (contract_id, price) VALUES (?, ?)').run(contract.id, 50);
 
-  if (contract.status === 'active') {
-    broadcast({ type: 'contract_created', contract });
-  }
+  broadcast({ type: 'contract_created', contract: enrichContract(contract) });
 
-  res.status(201).json({ contract });
+  res.status(201).json({ contract: enrichContract(contract) });
 });
 
 // Update contract status (admin only)
@@ -91,9 +89,9 @@ router.patch('/:id/status', requireAdmin, (req, res) => {
     cancelContractOrders(parseInt(req.params.id));
   }
 
-  const updated = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
-  broadcast({ type: 'contract_updated', contract: updated });
-  res.json({ contract: updated });
+  const updated = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(req.params.id);
+  broadcast({ type: 'contract_updated', contract: enrichContract(updated) });
+  res.json({ contract: enrichContract(updated) });
 });
 
 // Manually resolve contract (admin only)
