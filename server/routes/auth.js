@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../db');
-const { sendVerificationEmail } = require('../email');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../email');
 
 const router = express.Router();
 
@@ -104,6 +104,44 @@ router.post('/login', async (req, res) => {
   req.session.userId = user.id;
   req.session.username = user.username;
   res.json({ user: { id: user.id, username: user.username, display_name: user.display_name, balance: user.balance, is_admin: user.is_admin } });
+});
+
+// Forgot password — send reset email
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+  // Always respond ok — don't reveal whether email exists
+  if (!user || user.is_bot) return res.json({ ok: true });
+
+  const token = generateToken();
+  const expires = Date.now() + 60 * 60 * 1000; // 1 hour
+  db.prepare('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?').run(token, expires, user.id);
+
+  try {
+    await sendPasswordResetEmail({ to: user.email, username: user.username, token });
+  } catch (err) {
+    console.error('Reset email error:', err.message);
+  }
+
+  res.json({ ok: true });
+});
+
+// Reset password — consume token, set new password
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Token and new password required' });
+  if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
+
+  const user = db.prepare('SELECT * FROM users WHERE reset_token = ?').get(token);
+  if (!user) return res.status(400).json({ error: 'Invalid or already used reset link' });
+  if (Date.now() > user.reset_token_expires) return res.status(400).json({ error: 'Reset link has expired — please request a new one' });
+
+  const hash = await bcrypt.hash(password, 10);
+  db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?').run(hash, user.id);
+
+  res.json({ ok: true });
 });
 
 // Logout

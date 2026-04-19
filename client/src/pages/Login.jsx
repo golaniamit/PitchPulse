@@ -26,11 +26,29 @@ export default function Login() {
   // Unverified login: show resend prompt
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
 
+  // Forgot password
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotStatus, setForgotStatus] = useState(null); // null | 'loading' | 'sent'
+
   function switchMode(m) {
     setMode(m);
     setError('');
     setConfirmPassword('');
     setUnverifiedEmail(null);
+    setForgotMode(false);
+    setForgotStatus(null);
+  }
+
+  async function submitForgot(e) {
+    e.preventDefault();
+    setForgotStatus('loading');
+    await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: forgotEmail.trim() }),
+    });
+    setForgotStatus('sent'); // always show sent — don't reveal if email exists
   }
 
   async function submit(e) {
@@ -98,6 +116,67 @@ export default function Login() {
   const pwMismatch = mode === 'register' && confirmPassword && confirmPassword !== password;
 
   const inputCls = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy-800 transition-colors";
+
+  // ── Forgot password screen ─────────────────────────────────────
+  if (forgotMode) {
+    return (
+      <div className="min-h-screen bg-navy-800 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="flex justify-center mb-8">
+            <PitchPulseLogo size={40} showWordmark={true} dark={true} />
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-xl">
+            {forgotStatus === 'sent' ? (
+              <div className="text-center">
+                <div className="text-5xl mb-4">📬</div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Check your email</h2>
+                <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                  If an account exists for <strong>{forgotEmail}</strong>, a reset link is on its way. Check your spam folder too.
+                </p>
+                <button
+                  onClick={() => { setForgotMode(false); setForgotStatus(null); }}
+                  className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Back to login
+                </button>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">Forgot password?</h2>
+                <p className="text-gray-400 text-sm mb-6">Enter your email and we'll send a reset link.</p>
+                <form onSubmit={submitForgot} className="space-y-4">
+                  <div>
+                    <label className="text-xs text-gray-500 font-medium block mb-1">Email address</label>
+                    <input
+                      type="email"
+                      className={inputCls}
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!forgotEmail || forgotStatus === 'loading'}
+                    className="w-full bg-navy-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-navy-700 transition-colors disabled:opacity-50"
+                  >
+                    {forgotStatus === 'loading' ? '…' : 'Send reset link'}
+                  </button>
+                </form>
+                <button
+                  onClick={() => setForgotMode(false)}
+                  className="w-full mt-3 py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ← Back to login
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── "Check your email" screen ──────────────────────────────────
   if (pendingEmail) {
@@ -244,7 +323,18 @@ export default function Login() {
 
             {/* Password */}
             <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-gray-500 font-medium">Password</label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => setForgotMode(true)}
+                    className="text-xs text-navy-800 font-medium hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 className={inputCls}

@@ -11,6 +11,7 @@ import Leaderboard from './pages/Leaderboard';
 import Admin from './pages/Admin';
 import Feedback from './pages/Feedback';
 import Verify from './pages/Verify';
+import ResetPassword from './pages/ResetPassword';
 import OnboardingTour, { useTour } from './components/OnboardingTour';
 
 function AppShell() {
@@ -25,8 +26,9 @@ function AppShell() {
     );
   }
 
-  // Verify page must be reachable before login
+  // These pages must be reachable before login
   if (window.location.pathname === '/verify') return <Verify />;
+  if (window.location.pathname === '/reset-password') return <ResetPassword />;
 
   if (!user) return <Login />;
 

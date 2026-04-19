@@ -115,6 +115,8 @@ try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN verify_token TEXT`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN verify_token_expires INTEGER`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires INTEGER`); } catch (_) {}
 
 // Grandfather only old accounts (no email = created before verification was added)
 // Never touch new registrations that are intentionally unverified
