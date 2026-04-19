@@ -135,6 +135,15 @@ export default function Login() {
                 <p className="text-red-500 text-xs mt-2">Failed to resend. Try again in a moment.</p>
               )}
             </div>
+
+            <div className="border-t border-gray-100 mt-5 pt-5">
+              <button
+                onClick={() => { setPendingEmail(null); switchMode('login'); }}
+                className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Back to login
+              </button>
+            </div>
           </div>
         </div>
       </div>
