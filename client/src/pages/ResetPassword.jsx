@@ -8,8 +8,8 @@ export default function ResetPassword() {
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [status, setStatus] = useState('form'); // form | loading | success | error
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState(token ? 'form' : 'error'); // form | loading | success | error
+  const [error, setError] = useState(token ? '' : 'This reset link is invalid or missing. Please request a new one.');
 
   const mismatch = confirm && confirm !== password;
   const canSubmit = password.length >= 4 && confirm === password;
