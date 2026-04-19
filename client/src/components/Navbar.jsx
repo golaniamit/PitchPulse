@@ -68,9 +68,10 @@ export default function Navbar() {
   // Close on route change
   useEffect(() => { setProfileOpen(false); }, [loc.pathname]);
 
-  const navLink = (to, label) => (
+  const navLink = (to, label, dataTour) => (
     <Link
       to={to}
+      data-tour={dataTour || undefined}
       className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
         loc.pathname === to
           ? 'bg-white/20 text-white'
@@ -103,8 +104,8 @@ export default function Navbar() {
           </Link>
           <div className="hidden sm:flex items-center gap-1">
             {navLink('/', 'Markets')}
-            {navLink('/portfolio', 'Portfolio')}
-            {navLink('/leaderboard', 'Leaderboard')}
+            {navLink('/portfolio', 'Portfolio', 'nav-portfolio')}
+            {navLink('/leaderboard', 'Leaderboard', 'nav-leaderboard')}
             {navLink('/feedback', 'Feedback')}
             {user?.is_admin ? navLink('/admin', 'Admin') : null}
           </div>
@@ -133,7 +134,7 @@ export default function Navbar() {
           />
 
           {/* Coin balance */}
-          <div className="bg-white/10 px-3 py-1 rounded-full text-white text-sm font-semibold">
+          <div data-tour="balance" className="bg-white/10 px-3 py-1 rounded-full text-white text-sm font-semibold">
             🪙 {user?.balance?.toLocaleString()}
           </div>
 

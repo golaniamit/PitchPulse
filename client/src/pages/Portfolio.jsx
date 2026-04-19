@@ -58,7 +58,7 @@ export default function Portfolio() {
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
 
       {/* Summary card */}
-      <div className="bg-navy-800 rounded-2xl p-5 text-white">
+      <div data-tour="portfolio-summary" className="bg-navy-800 rounded-2xl p-5 text-white">
         <div className="flex justify-between items-start mb-4">
           <div>
             <p className="text-white/50 text-xs mb-1">Wallet balance</p>

@@ -15,7 +15,7 @@ function payout(stake, prob) {
   return Math.round(stake / (prob / 100));
 }
 
-export default function ContractCard({ contract }) {
+export default function ContractCard({ contract, tourTarget }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [stake, setStake] = useState(100);
@@ -55,6 +55,7 @@ export default function ContractCard({ contract }) {
 
   return (
     <div
+      data-tour={tourTarget ? "contract-card" : undefined}
       className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md transition-shadow"
       onClick={() => navigate(`/contract/${contract.id}`)}
     >
@@ -71,7 +72,7 @@ export default function ContractCard({ contract }) {
       </div>
 
       {/* Market sentiment bar */}
-      <div className="mb-4">
+      <div data-tour={tourTarget ? "price-bar" : undefined} className="mb-4">
         <div className="flex justify-between items-center mb-1">
           <span className="text-xs font-medium text-gray-400 dark:text-gray-500">Market sentiment</span>
           <span className="text-xs text-gray-400 dark:text-gray-500">{yesProb}% of money is on YES</span>
@@ -92,7 +93,7 @@ export default function ContractCard({ contract }) {
       {contract.status === 'active' && (
         <div onClick={e => e.stopPropagation()}>
           {/* Stake chips */}
-          <div className="flex gap-1.5 mb-3">
+          <div data-tour={tourTarget ? "stake-selector" : undefined} className="flex gap-1.5 mb-3">
             <span className="text-xs text-gray-400 self-center mr-1 flex-shrink-0">Stake</span>
             {STAKES.map(s => (
               <button
@@ -110,8 +111,9 @@ export default function ContractCard({ contract }) {
           </div>
 
           {/* Bet buttons */}
-          <div className="flex gap-2">
+          <div data-tour={tourTarget ? "bet-buttons" : undefined} className="flex gap-2">
             <button
+              data-tour={tourTarget ? "bet-yes" : undefined}
               onClick={(e) => placeBet('YES', e)}
               disabled={!!placing || stake > (user?.balance || 0)}
               className="flex-1 rounded-xl overflow-hidden bg-yes hover:bg-yes-light transition-colors disabled:opacity-60"
@@ -124,6 +126,7 @@ export default function ContractCard({ contract }) {
               </div>
             </button>
             <button
+              data-tour={tourTarget ? "bet-no" : undefined}
               onClick={(e) => placeBet('NO', e)}
               disabled={!!placing || stake > (user?.balance || 0)}
               className="flex-1 rounded-xl overflow-hidden bg-no hover:bg-no-light transition-colors disabled:opacity-60"

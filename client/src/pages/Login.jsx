@@ -146,16 +146,44 @@ export default function Login() {
     <div className="min-h-screen bg-navy-800 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8 gap-4">
+        {/* Logo + Wordmark */}
+        <div className="flex flex-col items-center mb-6 gap-3">
           <div className="rounded-3xl p-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <PitchPulseLogo size={72} showWordmark={false} dark={true} />
           </div>
-          <PitchPulseLogo size={40} showWordmark={true} dark={true} />
-          <p className="text-white/50 text-xs tracking-widest uppercase">Predict · Trade · Win</p>
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '2.5rem', letterSpacing: '-1.5px', lineHeight: 1 }}>
+            <span style={{ fontWeight: 300, color: 'rgba(255,255,255,0.9)' }}>pitch</span>
+            <span style={{ fontWeight: 800, color: '#00c896' }}>Pulse</span>
+          </p>
+          <p className="text-white/40 text-xs tracking-widest uppercase">Predict · Trade · Win</p>
+        </div>
+
+        {/* App description */}
+        <div className="text-center mb-5 px-1">
+          <p className="text-white/90 text-base font-semibold leading-snug mb-3">
+            Live prediction markets for IPL matches.
+          </p>
+          <p className="text-white/60 text-sm leading-relaxed">
+            Read the game. Back your instincts. Beat everyone else.
+          </p>
+        </div>
+
+        {/* Play money — prominent banner */}
+        <div className="mb-5 rounded-2xl overflow-hidden" style={{ background: 'rgba(0,200,150,0.12)', border: '1.5px solid rgba(0,200,150,0.35)' }}>
+          <div className="flex items-center justify-center gap-2 py-2.5 px-4" style={{ background: 'rgba(0,200,150,0.18)' }}>
+            <span className="text-xl">🪙</span>
+            <span className="text-[#00c896] font-black text-sm tracking-wide uppercase">Play coins only</span>
+            <span className="text-xl">🪙</span>
+          </div>
+          <div className="text-center py-2.5 px-4">
+            <p className="text-white/80 text-sm font-semibold">Zero real money. Zero financial risk.</p>
+            <p className="text-white/45 text-xs mt-0.5">Every user starts with 1000 free coins.</p>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-xl">
+
+
           {/* Login / Register toggle */}
           <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
             <button

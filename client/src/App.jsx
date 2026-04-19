@@ -11,9 +11,11 @@ import Leaderboard from './pages/Leaderboard';
 import Admin from './pages/Admin';
 import Feedback from './pages/Feedback';
 import Verify from './pages/Verify';
+import OnboardingTour, { useTour } from './components/OnboardingTour';
 
 function AppShell() {
   const { user, loading } = useAuth();
+  const { show, openTour, closeTour } = useTour(user?.username);
 
   if (loading) {
     return (
@@ -31,9 +33,10 @@ function AppShell() {
   return (
     <SocketProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+        {show && <OnboardingTour onClose={closeTour} username={user?.username} />}
         <Navbar />
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Home openTour={openTour} />} />
           <Route path="/contract/:id" element={<Contract />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
