@@ -31,13 +31,13 @@ export default function Leaderboard() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="p-4 border-b border-gray-100 dark:border-gray-700">
           <h1 className="font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Starting balance: 🪙 1,000</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Starting balance: 🪙 10,000</p>
         </div>
 
         <div className="divide-y divide-gray-50 dark:divide-gray-700">
           {leaders.map((u, i) => {
             const isMe = u.id === user?.id;
-            const pnl = u.balance - 1000;
+            const pnl = u.balance - 10000;
             return (
               <div key={u.id} className={`flex items-center px-4 py-3 gap-3 ${isMe ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                 <span className="text-lg w-7 text-center">{medals[i] || `${i + 1}`}</span>

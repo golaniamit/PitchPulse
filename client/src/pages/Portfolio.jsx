@@ -66,7 +66,7 @@ export default function Portfolio() {
           </div>
           <div className="text-right">
             <p className="text-white/50 text-xs mb-1">Started with</p>
-            <p className="text-lg font-semibold text-white/60">🪙 1,000</p>
+            <p className="text-lg font-semibold text-white/60">🪙 10,000</p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">

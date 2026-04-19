@@ -265,7 +265,7 @@ export default function Login() {
           </div>
           <div className="text-center py-2.5 px-4">
             <p className="text-white/80 text-sm font-semibold">Zero real money. Zero financial risk.</p>
-            <p className="text-white/45 text-xs mt-0.5">Every user starts with 1000 free coins.</p>
+            <p className="text-white/45 text-xs mt-0.5">Every user starts with 10,000 free coins.</p>
           </div>
         </div>
 

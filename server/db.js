@@ -27,7 +27,7 @@ function initSchema() {
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       display_name TEXT,
-      balance INTEGER DEFAULT 1000,
+      balance INTEGER DEFAULT 10000,
       is_admin INTEGER DEFAULT 0,
       is_bot INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP

@@ -13,7 +13,7 @@ const STEPS = [
     type: 'spotlight',
     target: '[data-tour="balance"]',
     title: '🪙 Your budget',
-    body: 'Everyone starts with 1,000 coins. Play, win and top the leaderboard.',
+    body: 'Everyone starts with 10,000 coins. Play, win and top the leaderboard.',
     callout: '🚫 No real money, ever.',
   },
   {

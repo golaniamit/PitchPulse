@@ -20,7 +20,7 @@ router.get('/portfolio', requireAuth, (req, res) => {
 router.get('/leaderboard', requireAuth, (req, res) => {
   const users = db.prepare(`
     SELECT u.id, u.username, u.balance,
-      u.balance - 1000 as pnl,
+      u.balance - 10000 as pnl,
       (SELECT COUNT(*) FROM trades t
         JOIN orders o ON (t.buyer_order_id = o.id OR t.seller_order_id = o.id)
         WHERE o.user_id = u.id) as trade_count

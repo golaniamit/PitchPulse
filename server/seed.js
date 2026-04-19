@@ -17,7 +17,7 @@ async function seed() {
   const testUsers = ['testuser1', 'testuser2', 'testuser3'];
   for (const u of testUsers) {
     try {
-      db.prepare('INSERT INTO users (username, password_hash, balance) VALUES (?, ?, 1000)').run(u, userHash);
+      db.prepare('INSERT INTO users (username, password_hash, balance) VALUES (?, ?, 10000)').run(u, userHash);
       console.log(`Test user created: ${u} / pass123`);
     } catch (e) {
       console.log(`${u} already exists`);

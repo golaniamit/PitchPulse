@@ -30,8 +30,8 @@ router.post('/register', async (req, res) => {
     const expires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
     const stmt = db.prepare(
-      `INSERT INTO users (username, password_hash, display_name, email, is_verified, verify_token, verify_token_expires)
-       VALUES (?, ?, ?, ?, 0, ?, ?)`
+      `INSERT INTO users (username, password_hash, display_name, email, balance, is_verified, verify_token, verify_token_expires)
+       VALUES (?, ?, ?, ?, 10000, 0, ?, ?)`
     );
     const result = stmt.run(username, hash, name, email.toLowerCase().trim(), token, expires);
 
