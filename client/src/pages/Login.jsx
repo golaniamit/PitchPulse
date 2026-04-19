@@ -219,22 +219,6 @@ export default function Login() {
 
           <form onSubmit={submit} className="space-y-3">
 
-            {/* Display name — register only */}
-            {mode === 'register' && (
-              <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">
-                  Display name <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <input
-                  className={inputCls}
-                  value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  placeholder="e.g. Rahul · shown on leaderboard"
-                  autoFocus
-                />
-              </div>
-            )}
-
             {/* Username */}
             <div>
               <label className="text-xs text-gray-500 font-medium block mb-1">Username</label>
@@ -243,27 +227,11 @@ export default function Login() {
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder="e.g. dhoni_fan"
-                autoFocus={mode === 'login'}
+                autoFocus
                 autoCapitalize="none"
                 autoCorrect="off"
               />
             </div>
-
-            {/* Email — register only */}
-            {mode === 'register' && (
-              <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">Email address</label>
-                <input
-                  type="email"
-                  className={inputCls}
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoCapitalize="none"
-                />
-                <p className="text-xs text-gray-400 mt-1">We'll send a verification link here</p>
-              </div>
-            )}
 
             {/* Password */}
             <div>
@@ -291,6 +259,37 @@ export default function Login() {
                 {pwMismatch && (
                   <p className="text-xs text-red-500 mt-1">Passwords don't match</p>
                 )}
+              </div>
+            )}
+
+            {/* Email — register only */}
+            {mode === 'register' && (
+              <div>
+                <label className="text-xs text-gray-500 font-medium block mb-1">Email address</label>
+                <input
+                  type="email"
+                  className={inputCls}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                />
+                <p className="text-xs text-gray-400 mt-1">We'll send a verification link here</p>
+              </div>
+            )}
+
+            {/* Display name — register only */}
+            {mode === 'register' && (
+              <div>
+                <label className="text-xs text-gray-500 font-medium block mb-1">
+                  Display name <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  className={inputCls}
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="e.g. Rahul · shown on leaderboard"
+                />
               </div>
             )}
 
