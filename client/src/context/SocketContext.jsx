@@ -26,7 +26,10 @@ export function SocketProvider({ children }) {
 
     function connect() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const socket = new WebSocket(`${protocol}//${window.location.hostname}:3001`);
+      // Dev: frontend on 5173, backend on 3001 — hard-code the port.
+      // Prod: same origin as the page; Railway proxies the WS upgrade to the node server.
+      const host = import.meta.env.DEV ? `${window.location.hostname}:3001` : window.location.host;
+      const socket = new WebSocket(`${protocol}//${host}`);
       ws.current = socket;
 
       socket.onopen = () => setConnected(true);
