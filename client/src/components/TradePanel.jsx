@@ -29,7 +29,18 @@ export default function TradePanel({ contract, onTraded }) {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
-      setSuccess(`Order placed! Balance: 🪙 ${data.newBalance}`);
+      // Square-off happens when the new order would cross the user's own
+      // resting orders on the opposite side — we cancel those instead of
+      // self-trading, and only place what's left (if anything).
+      const squared = data.squared_off || [];
+      const squaredQty = squared.reduce((s, x) => s + x.cancelled_qty, 0);
+      if (squaredQty > 0 && !data.order) {
+        setSuccess(`Squared off ${squaredQty} of your own ${squared[0].side} @ ${squared[0].price}¢. No new order placed.`);
+      } else if (squaredQty > 0 && data.order) {
+        setSuccess(`Squared off ${squaredQty} of your own ${squared[0].side} @ ${squared[0].price}¢ and placed ${data.order.quantity} × ${side} @ ${price}¢.`);
+      } else {
+        setSuccess(`Order placed! Balance: 🪙 ${data.newBalance}`);
+      }
       onTraded?.();
     } catch (e) {
       setError(e.message);

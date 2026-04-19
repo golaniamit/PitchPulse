@@ -22,18 +22,71 @@ router.post('/', requireAuth, (req, res) => {
   if (contract.status !== 'active') return res.status(400).json({ error: 'Contract is not active' });
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
-  const cost = side === 'YES' ? price * quantity : (100 - price) * quantity;
 
-  if (user.balance < cost) return res.status(400).json({ error: 'Insufficient balance' });
+  // Square-off: cancel user's own resting orders on the opposite side that
+  // would be crossed by this new order (price + resting > 100). Without this,
+  // the user would lock coins on both sides on an overlapping position that
+  // the engine refuses to self-match — i.e. a waste.
+  const oppositeSide = side === 'YES' ? 'NO' : 'YES';
+  const crossingOrders = db.prepare(`
+    SELECT * FROM orders
+    WHERE contract_id = ? AND user_id = ? AND side = ?
+      AND status IN ('open', 'partial')
+      AND (price + ?) >= 100
+    ORDER BY price DESC, created_at ASC
+  `).all(contract_id, user.id, oppositeSide, price);
 
-  // Deduct balance (locked in order)
-  db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(cost, user.id);
+  // First pass: plan the cancellations without touching the DB, so we can
+  // validate balance against the post-square-off state before mutating.
+  let remainingQty = quantity;
+  let plannedRefund = 0;
+  const plan = [];
+  for (const r of crossingOrders) {
+    if (remainingQty <= 0) break;
+    const resting = r.quantity - r.quantity_filled;
+    const cancelQty = Math.min(resting, remainingQty);
+    const pricePerUnit = r.side === 'YES' ? r.price : (100 - r.price);
+    plannedRefund += cancelQty * pricePerUnit;
+    plan.push({ order: r, cancelQty, fullCancel: cancelQty >= resting });
+    remainingQty -= cancelQty;
+  }
+
+  const costForRemainder = side === 'YES' ? price * remainingQty : (100 - price) * remainingQty;
+  if (user.balance + plannedRefund < costForRemainder) {
+    return res.status(400).json({ error: 'Insufficient balance' });
+  }
+
+  // Execute the planned cancellations.
+  const squaredOff = [];
+  for (const p of plan) {
+    const { order: r, cancelQty, fullCancel } = p;
+    const refund = cancelQty * (r.side === 'YES' ? r.price : (100 - r.price));
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(refund, user.id);
+    if (fullCancel) {
+      db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(r.id);
+    } else {
+      db.prepare('UPDATE orders SET quantity = ? WHERE id = ?').run(r.quantity - cancelQty, r.id);
+    }
+    squaredOff.push({ order_id: r.id, side: r.side, price: r.price, cancelled_qty: cancelQty });
+  }
+
+  // If the new order is fully absorbed by square-offs, don't register it as a bet.
+  if (remainingQty <= 0) {
+    const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id).balance;
+    broadcast({ type: 'balance_update', userId: user.id, newBalance });
+    const book = getOrderBook(contract_id);
+    broadcast({ type: 'orderbook_update', contractId: contract_id, bids: book.bids, asks: book.asks });
+    return res.status(200).json({ squared_off: squaredOff, order: null, newBalance });
+  }
+
+  // Deduct balance (locked in order) for the remaining quantity
+  db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(costForRemainder, user.id);
 
   // Insert order
   const result = db.prepare(`
     INSERT INTO orders (contract_id, user_id, side, price, quantity)
     VALUES (?, ?, ?, ?, ?)
-  `).run(contract_id, user.id, side, price, quantity);
+  `).run(contract_id, user.id, side, price, remainingQty);
 
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(result.lastInsertRowid);
 
@@ -47,7 +100,7 @@ router.post('/', requireAuth, (req, res) => {
   const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id).balance;
   broadcast({ type: 'balance_update', userId: user.id, newBalance });
 
-  res.status(201).json({ order, newBalance });
+  res.status(201).json({ order, newBalance, squared_off: squaredOff });
 });
 
 // Cancel an order
