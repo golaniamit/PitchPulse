@@ -328,6 +328,7 @@ export default function Login() {
                 {mode === 'login' && (
                   <button
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setForgotMode(true)}
                     className="text-xs text-navy-800 font-medium hover:underline"
                   >
