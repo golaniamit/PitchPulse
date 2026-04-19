@@ -24,9 +24,9 @@ export default function Verify() {
   return (
     <div className="min-h-screen bg-navy-800 flex items-center justify-center p-4">
       <div className="w-full max-w-sm text-center">
-        <div className="flex justify-center mb-8">
+        <Link to="/" className="flex justify-center mb-8">
           <PitchPulseLogo size={40} showWordmark={true} dark={true} />
-        </div>
+        </Link>
 
         <div className="bg-white rounded-2xl p-8 shadow-xl">
           {status === 'loading' && (
