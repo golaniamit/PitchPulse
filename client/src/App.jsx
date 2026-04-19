@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -17,6 +17,7 @@ import OnboardingTour, { useTour } from './components/OnboardingTour';
 function AppShell() {
   const { user, loading } = useAuth();
   const { show, openTour, closeTour } = useTour(user?.username);
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -27,8 +28,8 @@ function AppShell() {
   }
 
   // These pages must be reachable before login
-  if (window.location.pathname === '/verify') return <Verify />;
-  if (window.location.pathname === '/reset-password') return <ResetPassword />;
+  if (location.pathname === '/verify') return <Verify />;
+  if (location.pathname === '/reset-password') return <ResetPassword />;
 
   if (!user) return <Login />;
 
