@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const storageKey = (username) => `pitchpulse_tour_done_${username}`;
+import { useAuth } from '../context/AuthContext';
 
 // type: 'intro' | 'outro' | 'spotlight'
 const STEPS = [
@@ -54,19 +53,22 @@ const STEPS = [
 ];
 
 const PAD = 10;
-const TT_WIDTH = 300;
 const TT_H_EST = 185; // approximate tooltip height for positioning
+
+// Responsive tooltip width — never wider than viewport minus 24px margins
+function ttWidth() { return Math.min(300, window.innerWidth - 24); }
 
 function tooltipPos(rect) {
   const vh = window.innerHeight;
   const vw = window.innerWidth;
+  const w = ttWidth();
   const spaceBelow = vh - rect.bottom - PAD - 14;
   const placeAbove = spaceBelow < TT_H_EST && rect.top > TT_H_EST + 20;
   const top = placeAbove
     ? rect.top - PAD - 14 - TT_H_EST
     : rect.bottom + PAD + 14;
-  const idealLeft = rect.left + rect.width / 2 - TT_WIDTH / 2;
-  const left = Math.max(12, Math.min(idealLeft, vw - TT_WIDTH - 12));
+  const idealLeft = rect.left + rect.width / 2 - w / 2;
+  const left = Math.max(12, Math.min(idealLeft, vw - w - 12));
   return { top, left };
 }
 
@@ -90,29 +92,29 @@ function Dots({ current, total }) {
 }
 
 /* ─── useTour hook ─────────────────────────────────────────────────── */
-export function useTour(username) {
+// Reads tour_seen from the server-side user object — works on all browsers
+// including mobile where localStorage may be cleared.
+export function useTour(user) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    if (!username) return;
-    if (!localStorage.getItem(storageKey(username))) {
+    if (!user) return;
+    if (!user.tour_seen) {
       const t = setTimeout(() => setShow(true), 700);
       return () => clearTimeout(t);
     }
-  }, [username]);
+  }, [user?.id, user?.tour_seen]);
 
   return {
     show,
-    openTour: () => {
-      if (username) localStorage.removeItem(storageKey(username));
-      setShow(true);
-    },
+    openTour: () => setShow(true),   // "?" replay button
     closeTour: () => setShow(false),
   };
 }
 
 /* ─── Tour component ───────────────────────────────────────────────── */
-export default function OnboardingTour({ onClose, username }) {
+export default function OnboardingTour({ onClose }) {
+  const { markTourSeen } = useAuth();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState(null);
   const [visible, setVisible] = useState(false); // controls fade in/out
@@ -152,7 +154,7 @@ export default function OnboardingTour({ onClose, username }) {
   }, [current.target, isSpotlight]);
 
   function finish() {
-    if (username) localStorage.setItem(storageKey(username), '1');
+    markTourSeen();  // persists to server — works on all browsers/devices
     onClose();
   }
 
@@ -215,6 +217,7 @@ export default function OnboardingTour({ onClose, username }) {
     width:  rect.width  + PAD * 2,
     height: rect.height + PAD * 2,
   };
+  const w = ttWidth();
   const { top: ttTop, left: ttLeft } = tooltipPos(rect);
 
   return (
@@ -243,7 +246,7 @@ export default function OnboardingTour({ onClose, username }) {
           position: 'fixed',
           top: ttTop,
           left: ttLeft,
-          width: TT_WIDTH,
+          width: w,
           zIndex: 10000,
           opacity: visible ? 1 : 0,
           transform: visible ? 'translateY(0)' : 'translateY(10px)',

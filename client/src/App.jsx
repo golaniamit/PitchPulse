@@ -16,7 +16,7 @@ import OnboardingTour, { useTour } from './components/OnboardingTour';
 
 function AppShell() {
   const { user, loading } = useAuth();
-  const { show, openTour, closeTour } = useTour(user?.username);
+  const { show, openTour, closeTour } = useTour(user);
   const location = useLocation();
 
   if (loading) {
@@ -36,7 +36,7 @@ function AppShell() {
   return (
     <SocketProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-        {show && <OnboardingTour onClose={closeTour} username={user?.username} />}
+        {show && <OnboardingTour onClose={closeTour} />}
         <Navbar />
         <Routes>
           <Route path="/" element={<Home openTour={openTour} tourActive={show} />} />

@@ -103,7 +103,7 @@ router.post('/login', async (req, res) => {
 
   req.session.userId = user.id;
   req.session.username = user.username;
-  res.json({ user: { id: user.id, username: user.username, display_name: user.display_name, balance: user.balance, is_admin: user.is_admin } });
+  res.json({ user: { id: user.id, username: user.username, display_name: user.display_name, balance: user.balance, is_admin: user.is_admin, tour_seen: user.tour_seen } });
 });
 
 // Forgot password — send reset email
@@ -153,9 +153,16 @@ router.post('/logout', (req, res) => {
 // Me (current session)
 router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
-  const user = db.prepare('SELECT id, username, display_name, balance, is_admin FROM users WHERE id = ?').get(req.session.userId);
+  const user = db.prepare('SELECT id, username, display_name, balance, is_admin, tour_seen FROM users WHERE id = ?').get(req.session.userId);
   if (!user) return res.status(401).json({ error: 'User not found' });
   res.json({ user });
+});
+
+// Mark tour as completed for the current user
+router.post('/tour-complete', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  db.prepare('UPDATE users SET tour_seen = 1 WHERE id = ?').run(req.session.userId);
+  res.json({ ok: true });
 });
 
 module.exports = router;

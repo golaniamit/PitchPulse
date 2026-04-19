@@ -60,8 +60,13 @@ export function AuthProvider({ children }) {
     setUser(u => u ? { ...u, balance: newBalance } : u);
   }
 
+  async function markTourSeen() {
+    await fetch('/api/auth/tour-complete', { method: 'POST', credentials: 'include' });
+    setUser(u => u ? { ...u, tour_seen: 1 } : u);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, resendVerification, logout, updateBalance }}>
+    <AuthContext.Provider value={{ user, loading, login, register, resendVerification, logout, updateBalance, markTourSeen }}>
       {children}
     </AuthContext.Provider>
   );

@@ -265,15 +265,16 @@ export default function Navbar() {
       {/* Mobile nav */}
       <div className="sm:hidden flex border-t border-white/10">
         {[
-          ['/', 'Markets'],
-          ['/portfolio', 'Portfolio'],
-          ['/leaderboard', 'Board'],
-          ['/feedback', 'Feedback'],
-          ...(user?.is_admin ? [['/admin', 'Admin']] : []),
-        ].map(([to, label]) => (
+          ['/', 'Markets', null],
+          ['/portfolio', 'Portfolio', 'nav-portfolio'],
+          ['/leaderboard', 'Board', null],
+          ['/feedback', 'Feedback', 'nav-feedback'],
+          ...(user?.is_admin ? [['/admin', 'Admin', null]] : []),
+        ].map(([to, label, dataTour]) => (
           <Link
             key={to}
             to={to}
+            data-tour={dataTour || undefined}
             className={`flex-1 text-center py-2 text-xs font-medium transition-colors ${
               loc.pathname === to ? 'text-white bg-white/10' : 'text-white/60'
             }`}
