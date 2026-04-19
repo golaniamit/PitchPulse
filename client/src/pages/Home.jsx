@@ -36,7 +36,7 @@ const DEMO_CONTRACTS = [
 ];
 
 export default function Home({ openTour, tourActive }) {
-  const { on } = useSocket();
+  const { on, send, connected } = useSocket();
   const [contracts, setContracts] = useState([]);
   const [tab, setTab] = useState('active');
   const [loading, setLoading] = useState(true);
@@ -80,6 +80,16 @@ export default function Home({ openTour, tourActive }) {
     ];
     return () => unsubs.forEach(fn => fn?.());
   }, [on]);
+
+  // Subscribe to price / orderbook updates for every contract on screen.
+  // Re-runs when the set of contract IDs changes or the socket reconnects.
+  const contractIdsKey = contracts.map(c => c.id).join('|');
+  useEffect(() => {
+    if (tourActive || !connected) return;
+    const ids = contracts.map(c => c.id).filter(id => typeof id === 'number');
+    ids.forEach(id => send({ type: 'subscribe', contractId: id }));
+    return () => ids.forEach(id => send({ type: 'unsubscribe', contractId: id }));
+  }, [contractIdsKey, tourActive, connected, send]);
 
   // ── What to display ────────────────────────────────────────────────
   // During the tour: always show the two demo cards (all 'active'),
