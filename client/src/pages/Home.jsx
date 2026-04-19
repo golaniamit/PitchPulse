@@ -4,7 +4,38 @@ import ContractCard from '../components/ContractCard';
 
 const TABS = ['active', 'resolved', 'all'];
 
-export default function Home({ openTour }) {
+/* ─── Dummy contracts shown during the onboarding tour ──────────────
+   Two cards covering the main states users will actually encounter:
+   Card 1 — fresh, no bids yet (State A)
+   Card 2 — live market, both sides active with real sentiment bar     ─── */
+const DEMO_CONTRACTS = [
+  {
+    id: 'tour-demo-1',
+    title: 'Will Kohli score 50+ runs today?',
+    type: 'batsman_milestone',
+    status: 'active',
+    current_price: 50,
+    best_yes_bid: null,
+    best_no_bid: null,
+    has_trades: false,
+    resolution: null,
+    creator: 'admin',
+  },
+  {
+    id: 'tour-demo-2',
+    title: 'Will RCB hit 10+ runs in over 8?',
+    type: 'runs_over',
+    status: 'active',
+    current_price: 68,
+    best_yes_bid: 68,
+    best_no_bid: 35,
+    has_trades: true,
+    resolution: null,
+    creator: 'admin',
+  },
+];
+
+export default function Home({ openTour, tourActive }) {
   const { on } = useSocket();
   const [contracts, setContracts] = useState([]);
   const [tab, setTab] = useState('active');
@@ -50,11 +81,18 @@ export default function Home({ openTour }) {
     return () => unsubs.forEach(fn => fn?.());
   }, [on]);
 
-  const filtered = contracts.filter(c => {
-    if (tab === 'active') return c.status === 'active';
-    if (tab === 'resolved') return c.status === 'resolved';
-    return true;
-  });
+  // ── What to display ────────────────────────────────────────────────
+  // During the tour: always show the two demo cards (all 'active'),
+  // ignoring the real API data. The real data keeps loading in the
+  // background so the switch back is instant when the tour ends.
+  const countSource = tourActive ? DEMO_CONTRACTS : contracts;
+  const displayList = tourActive
+    ? DEMO_CONTRACTS
+    : contracts.filter(c => {
+        if (tab === 'active')   return c.status === 'active';
+        if (tab === 'resolved') return c.status === 'resolved';
+        return true;
+      });
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
@@ -72,7 +110,7 @@ export default function Home({ openTour }) {
             >
               {t}
               <span className="ml-1 text-xs text-gray-400">
-                ({contracts.filter(c => t === 'all' ? true : c.status === t).length})
+                ({countSource.filter(c => t === 'all' ? true : c.status === t).length})
               </span>
             </button>
           ))}
@@ -84,11 +122,11 @@ export default function Home({ openTour }) {
         >?</button>
       </div>
 
-      {loading && (
+      {!tourActive && loading && (
         <div className="text-center py-12 text-gray-400">Loading markets...</div>
       )}
 
-      {!loading && filtered.length === 0 && (
+      {!tourActive && !loading && displayList.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-400 text-sm">No {tab} contracts</p>
           {tab === 'active' && <p className="text-gray-300 text-xs mt-1">Admin can create contracts in the Admin panel</p>}
@@ -96,7 +134,13 @@ export default function Home({ openTour }) {
       )}
 
       <div className="space-y-3">
-        {filtered.map((c, i) => <ContractCard key={c.id} contract={c} tourTarget={i === 0 && tab === 'active'} />)}
+        {displayList.map((c, i) => (
+          <ContractCard
+            key={c.id}
+            contract={c}
+            tourTarget={tourActive ? true : (i === 0 && tab === 'active')}
+          />
+        ))}
       </div>
     </div>
   );

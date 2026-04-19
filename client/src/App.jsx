@@ -14,11 +14,9 @@ import Verify from './pages/Verify';
 import ResetPassword from './pages/ResetPassword';
 import OnboardingTour, { useTour } from './components/OnboardingTour';
 
-const isDev = import.meta.env.DEV;
-
 function AppShell() {
   const { user, loading } = useAuth();
-  const { show, openTour, closeTour } = useTour(isDev ? user?.username : null);
+  const { show, openTour, closeTour } = useTour(user?.username);
   const location = useLocation();
 
   if (loading) {
@@ -38,10 +36,10 @@ function AppShell() {
   return (
     <SocketProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-        {isDev && show && <OnboardingTour onClose={closeTour} username={user?.username} />}
+        {show && <OnboardingTour onClose={closeTour} username={user?.username} />}
         <Navbar />
         <Routes>
-          <Route path="/" element={<Home openTour={isDev ? openTour : undefined} />} />
+          <Route path="/" element={<Home openTour={openTour} tourActive={show} />} />
           <Route path="/contract/:id" element={<Contract />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
