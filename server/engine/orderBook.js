@@ -43,20 +43,21 @@ function matchOrders(contractId) {
       ORDER BY price DESC, created_at ASC LIMIT 1
     `).get(contractId);
 
-    // Get best NO bid (highest NO price = highest 100-YES equivalent)
+    if (!yesBid) break;
+
+    // Find best NO bid from a DIFFERENT user, that is matchable
     const noBid = db.prepare(`
       SELECT * FROM orders
       WHERE contract_id = ? AND side = 'NO' AND status IN ('open', 'partial')
+        AND user_id != ?
+        AND (price + ?) >= 100
       ORDER BY price DESC, created_at ASC LIMIT 1
-    `).get(contractId);
+    `).get(contractId, yesBid.user_id, yesBid.price);
 
-    if (!yesBid || !noBid) break;
+    if (!noBid) break;
 
-    // Match condition: YES price + NO price >= 100
+    // Match condition: YES price + NO price >= 100 (already filtered above)
     if (yesBid.price + noBid.price < 100) break;
-
-    // Don't match orders from the same user
-    if (yesBid.user_id === noBid.user_id) break;
 
     // Trade at the YES bid price (maker sets price)
     const tradePrice = yesBid.created_at <= noBid.created_at ? yesBid.price : (100 - noBid.price);
@@ -92,14 +93,14 @@ function matchOrders(contractId) {
     upsertPosition(noBid.user_id, contractId, 'NO', qty, 100 - tradePrice);
 
     // Refund any overpayment if taker got a better price
-    // YES buyer paid yesBid.price per contract but trade executed at tradePrice
+    // YES buyer locked yesBid.price per contract; trade executes at tradePrice
     const yesRefund = (yesBid.price - tradePrice) * qty;
     if (yesRefund > 0) {
       db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(yesRefund, yesBid.user_id);
     }
-    // NO buyer paid noBid.price per contract but trade executed at (100-tradePrice)
-    const noActualCost = 100 - tradePrice;
-    const noRefund = (noBid.price - noActualCost) * qty;
+    // NO buyer locked (100 - noBid.price) per contract; actual cost at trade = (100 - tradePrice)
+    // Refund = locked - actual = (100 - noBid.price) - (100 - tradePrice) = tradePrice - noBid.price
+    const noRefund = (tradePrice - noBid.price) * qty;
     if (noRefund > 0) {
       db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(noRefund, noBid.user_id);
     }
