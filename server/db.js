@@ -123,8 +123,4 @@ try { db.exec(`ALTER TABLE users ADD COLUMN tour_seen INTEGER DEFAULT 0`); } cat
 // Never touch new registrations that are intentionally unverified
 db.exec(`UPDATE users SET is_verified = 1 WHERE email IS NULL`);
 
-// ONE-SHOT: reset all users' tour so they see the updated onboarding tour on next login.
-// REMOVE THIS LINE AND REDEPLOY after Railway has booted once with it in place.
-db.exec(`UPDATE users SET tour_seen = 0`);
-
 module.exports = db;
