@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { requireAdmin } = require('../middleware');
 const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval } = require('../engine/resolver');
+const { getIntSetting, setSetting } = require('../settings');
 const db = require('../db');
 const router = express.Router();
 
@@ -171,6 +172,33 @@ router.get('/debug-resolver', requireAdmin, async (req, res) => {
     })),
     active_auto_contracts: contractDiag,
   });
+});
+
+// Bot intensity dial (0 = off, 1 = low, 2 = moderate, 3 = high)
+router.get('/bots', requireAdmin, (req, res) => {
+  const intensity = getIntSetting('bots_intensity', 0);
+  const botIds = db.prepare("SELECT id FROM users WHERE is_bot = 1").all().map(r => r.id);
+  let ordersLastHour = 0;
+  if (botIds.length > 0) {
+    const placeholders = botIds.map(() => '?').join(',');
+    ordersLastHour = db.prepare(
+      `SELECT COUNT(*) as c FROM orders WHERE user_id IN (${placeholders}) AND created_at > datetime('now', '-1 hour')`
+    ).get(...botIds).c;
+  }
+  const activeContracts = db.prepare("SELECT COUNT(*) as c FROM contracts WHERE status = 'active'").get().c;
+  const totalBalance = db.prepare("SELECT COALESCE(SUM(balance),0) as s FROM users WHERE is_bot = 1").get().s;
+  const botCount = botIds.length;
+  res.json({ intensity, stats: { ordersLastHour, activeContracts, totalBalance, botCount } });
+});
+
+router.post('/bots/intensity', requireAdmin, (req, res) => {
+  const level = parseInt(req.body.level);
+  if (!Number.isFinite(level) || level < 0 || level > 3) {
+    return res.status(400).json({ error: 'level must be 0, 1, 2, or 3' });
+  }
+  setSetting('bots_intensity', level);
+  console.log(`[admin] Bots intensity set to ${level}`);
+  res.json({ ok: true, intensity: level });
 });
 
 // Force-verify a user by username (admin only — useful for testing)

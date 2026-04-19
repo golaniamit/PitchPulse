@@ -427,6 +427,102 @@ function MatchSelector({ onTeamsChange }) {
   );
 }
 
+function BotsControl() {
+  const [intensity, setIntensity] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    try {
+      const r = await fetch('/api/admin/bots', { credentials: 'include' });
+      const d = await r.json();
+      if (!r.ok) return;
+      setIntensity(d.intensity);
+      setStats(d.stats);
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, []);
+
+  async function setLevel(level) {
+    if (level === intensity || saving) return;
+    setSaving(true);
+    try {
+      const r = await fetch('/api/admin/bots/intensity', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level }),
+      });
+      const d = await r.json();
+      if (r.ok) setIntensity(d.intensity);
+      load();
+    } catch { /* ignore */ } finally {
+      setSaving(false);
+    }
+  }
+
+  const LABELS = [
+    { n: 0, label: 'Off', desc: 'No new bot trades' },
+    { n: 1, label: 'Low', desc: 'Sparse background activity' },
+    { n: 2, label: 'Moderate', desc: 'Default dev behaviour' },
+    { n: 3, label: 'High', desc: 'Frequent orders — for empty markets' },
+  ];
+
+  const current = LABELS.find(l => l.n === intensity);
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-gray-900 dark:text-gray-100">Bots</h2>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${
+          intensity === 0
+            ? 'text-gray-500 bg-gray-100 dark:bg-gray-700 dark:text-gray-300'
+            : 'text-green-700 bg-green-50 dark:bg-green-900/30 dark:text-green-300'
+        }`}>
+          {intensity === null ? '...' : (intensity === 0 ? 'Dormant' : `Active — ${current?.label}`)}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
+        {LABELS.map(l => (
+          <button
+            key={l.n}
+            onClick={() => setLevel(l.n)}
+            disabled={saving || intensity === null}
+            className={`rounded-xl border p-2.5 text-center transition-colors ${
+              intensity === l.n
+                ? 'border-navy-800 bg-navy-800 text-white'
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 text-gray-700 dark:text-gray-200'
+            } disabled:opacity-50`}
+          >
+            <div className="text-lg font-bold">{l.n}</div>
+            <div className="text-xs font-medium leading-tight">{l.label}</div>
+          </button>
+        ))}
+      </div>
+
+      {current && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+          {current.desc}
+        </p>
+      )}
+
+      {stats && (
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2 text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
+          <span><span className="font-semibold text-gray-700 dark:text-gray-200">{stats.ordersLastHour}</span> orders / last hour</span>
+          <span><span className="font-semibold text-gray-700 dark:text-gray-200">{stats.activeContracts}</span> active contracts</span>
+          <span><span className="font-semibold text-gray-700 dark:text-gray-200">{stats.botCount}</span> bots · {stats.totalBalance.toLocaleString()} coins</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -519,6 +615,9 @@ export default function Admin() {
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* Match selector */}
         <MatchSelector onTeamsChange={setMatchTeams} />
+
+        {/* Bots control */}
+        <BotsControl />
 
         {/* Contract builder */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">

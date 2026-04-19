@@ -77,10 +77,8 @@ ensureAdmin().catch(console.error);
 // WebSocket
 ws.init(server);
 
-// Start bots and resolver
-if (process.env.ENABLE_BOTS === 'true') {
-  startBots();
-}
+// Start bots — actual activity is controlled by the bots_intensity admin setting.
+startBots();
 startResolver();
 
 const PORT = process.env.PORT || 3001;
