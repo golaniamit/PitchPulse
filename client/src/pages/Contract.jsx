@@ -100,11 +100,11 @@ export default function Contract() {
                   style={{ width: `${contract.current_price}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Market sentiment</p>
+              <p className="text-xs text-gray-400 dark:text-gray-400 mt-1">Market sentiment</p>
             </div>
             <div className="text-right flex-shrink-0">
               <div className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">{contract.current_price}%</div>
-              <div className="text-xs text-gray-400 dark:text-gray-500">on YES</div>
+              <div className="text-xs text-gray-400 dark:text-gray-400">on YES</div>
             </div>
           </div>
         )}

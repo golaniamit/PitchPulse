@@ -35,7 +35,7 @@ export default function OrderBook({ bids = [], asks = [] }) {
       <div className="flex text-xs font-semibold px-2 py-2 border-b border-gray-100 dark:border-gray-700">
         <div className="flex-1">
           <span className="text-yes font-bold">↑ YES bids</span>
-          <div className="flex mt-0.5 text-gray-300 dark:text-gray-600">
+          <div className="flex mt-0.5 text-gray-400 dark:text-gray-400">
             <span className="hidden sm:block flex-1">user</span>
             <span className="flex-1 sm:flex-none text-right w-6">qty</span>
             <span className="w-8 text-right">price</span>
@@ -44,7 +44,7 @@ export default function OrderBook({ bids = [], asks = [] }) {
         <div className="w-px bg-gray-100 dark:bg-gray-700 mx-2" />
         <div className="flex-1 text-right">
           <span className="text-no font-bold">↓ NO bids</span>
-          <div className="flex mt-0.5 text-gray-300 dark:text-gray-600 justify-end">
+          <div className="flex mt-0.5 text-gray-400 dark:text-gray-400 justify-end">
             <span className="w-8">price</span>
             <span className="flex-1 sm:flex-none text-right w-6">qty</span>
             <span className="hidden sm:block flex-1 text-right">user</span>
@@ -55,12 +55,12 @@ export default function OrderBook({ bids = [], asks = [] }) {
       <div className="flex">
         <div className="flex-1 min-h-[100px]">
           {bids.slice(0, 6).map(b => <Row key={b.id} order={b} side="YES" />)}
-          {bids.length === 0 && <p className="text-xs text-gray-300 dark:text-gray-600 p-3 text-center">No bids</p>}
+          {bids.length === 0 && <p className="text-xs text-gray-400 dark:text-gray-500 p-3 text-center">No bids</p>}
         </div>
         <div className="w-px bg-gray-100 dark:bg-gray-700" />
         <div className="flex-1">
           {asks.slice(0, 6).map(a => <Row key={a.id} order={a} side="NO" />)}
-          {asks.length === 0 && <p className="text-xs text-gray-300 dark:text-gray-600 p-3 text-center">No asks</p>}
+          {asks.length === 0 && <p className="text-xs text-gray-400 dark:text-gray-500 p-3 text-center">No asks</p>}
         </div>
       </div>
     </div>

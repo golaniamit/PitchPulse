@@ -156,14 +156,14 @@ export default function ContractCard({ contract, tourTarget }) {
                   className="flex-1 py-2.5 rounded-xl border-2 border-yes/40 bg-yes/10 text-yes hover:bg-yes/20 transition-colors text-center"
                 >
                   <div className="text-sm font-bold">Bid YES</div>
-                  <div className="text-xs text-yes/60 mt-0.5">set your price →</div>
+                  <div className="text-xs text-yes/70 dark:text-yes mt-0.5">set your price →</div>
                 </button>
                 <button
                   onClick={goToDetail}
                   className="flex-1 py-2.5 rounded-xl border-2 border-no/40 bg-no/10 text-no hover:bg-no/20 transition-colors text-center"
                 >
                   <div className="text-sm font-bold">Bid NO</div>
-                  <div className="text-xs text-no/60 mt-0.5">set your price →</div>
+                  <div className="text-xs text-no/70 dark:text-no mt-0.5">set your price →</div>
                 </button>
               </div>
               <button onClick={goToDetail} className="w-full text-center text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-1 transition-colors">
@@ -208,7 +208,7 @@ export default function ContractCard({ contract, tourTarget }) {
                     className="flex-1 py-2.5 px-3 rounded-xl border-2 border-yes/40 bg-yes/10 text-yes hover:bg-yes/20 transition-colors text-center"
                   >
                     <div className="text-sm font-bold">Bid YES</div>
-                    <div className="text-xs text-yes/60 mt-0.5">set your price →</div>
+                    <div className="text-xs text-yes/70 dark:text-yes mt-0.5">set your price →</div>
                   </button>
                 )}
                 {/* NO side */}
@@ -227,7 +227,7 @@ export default function ContractCard({ contract, tourTarget }) {
                     className="flex-1 py-2.5 px-3 rounded-xl border-2 border-no/40 bg-no/10 text-no hover:bg-no/20 transition-colors text-center"
                   >
                     <div className="text-sm font-bold">Bid NO</div>
-                    <div className="text-xs text-no/60 mt-0.5">set your price →</div>
+                    <div className="text-xs text-no/70 dark:text-no mt-0.5">set your price →</div>
                   </button>
                 )}
               </div>
