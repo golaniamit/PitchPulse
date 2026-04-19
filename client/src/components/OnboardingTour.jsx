@@ -41,6 +41,12 @@ const STEPS = [
     body: 'All your active bets live here. Check in any time to track how your predictions are playing out.',
   },
   {
+    type: 'spotlight',
+    target: '[data-tour="nav-feedback"]',
+    title: '🚧 This is a Beta',
+    body: "PitchPulse is still being built and refined. If something feels off, a feature is missing, or you have ideas — drop them in the Feedback tab. Every suggestion helps shape the game.",
+  },
+  {
     type: 'outro',
     title: "You're all set! 🏏",
     body: "Now sit back, watch the cricket and outpredict your friends. Back the right calls, stack your coins and climb to the top. May the sharpest mind win. 🏆",

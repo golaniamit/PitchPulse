@@ -106,7 +106,7 @@ export default function Navbar() {
             {navLink('/', 'Markets')}
             {navLink('/portfolio', 'Portfolio', 'nav-portfolio')}
             {navLink('/leaderboard', 'Leaderboard', 'nav-leaderboard')}
-            {navLink('/feedback', 'Feedback')}
+            {navLink('/feedback', 'Feedback', 'nav-feedback')}
             {user?.is_admin ? navLink('/admin', 'Admin') : null}
           </div>
         </div>
