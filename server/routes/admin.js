@@ -173,4 +173,14 @@ router.get('/debug-resolver', requireAdmin, async (req, res) => {
   });
 });
 
+// Force-verify a user by username (admin only — useful for testing)
+router.post('/verify-user', requireAdmin, (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'username required' });
+  const user = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  db.prepare('UPDATE users SET is_verified = 1, verify_token = NULL, verify_token_expires = NULL WHERE id = ?').run(user.id);
+  res.json({ ok: true, username });
+});
+
 module.exports = router;
