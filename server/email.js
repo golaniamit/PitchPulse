@@ -9,7 +9,7 @@ function getResend() {
 }
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
-const FROM = 'PitchPulse <onboarding@resend.dev>';
+const FROM = 'PitchPulse <noreply@pitchpulse.co.in>';
 
 async function sendVerificationEmail({ to, username, displayName, token }) {
   const verifyUrl = `${APP_URL}/verify?token=${token}`;
