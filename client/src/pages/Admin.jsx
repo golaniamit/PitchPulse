@@ -163,7 +163,7 @@ function ResolveModal({ contract, onConfirm, onCancel }) {
                 onClick={() => setStep(2)}
                 className="flex-1 py-2.5 rounded-xl bg-navy-800 text-white text-sm font-semibold hover:bg-navy-700 transition-colors"
               >
-                Yes, resolve it
+                Resolve
               </button>
             </div>
           </>
