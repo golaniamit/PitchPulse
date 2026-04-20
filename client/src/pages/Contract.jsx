@@ -49,6 +49,13 @@ export default function Contract() {
       on('orderbook_update', (msg) => {
         if (String(msg.contractId) !== id) return;
         setBook({ bids: msg.bids, asks: msg.asks });
+        // Keep contract.best_*_bid in sync so the trade panel's
+        // Buy-vs-Bid verb reflects the live book, not the stale load().
+        setContract(c => c ? {
+          ...c,
+          best_yes_bid: msg.bids[0]?.price ?? null,
+          best_no_bid:  msg.asks[0]?.price ?? null,
+        } : c);
       }),
       on('contract_resolved', (msg) => {
         if (String(msg.contractId) !== id) return;

@@ -17,6 +17,13 @@ export default function TradePanel({ contract, onTraded }) {
   const pnlIfWin = (side === 'YES' ? ifYes : ifNo) - cost;
   const pnlIfLose = -cost;
 
+  // "Buy" if this order would cross the book (immediate fill, at least partial).
+  // "Bid" if it would just rest waiting for a counterparty.
+  // A YES at P matches a NO at Q when P + Q >= 100 (and vice versa).
+  const bestOppositeBid = side === 'YES' ? contract?.best_no_bid : contract?.best_yes_bid;
+  const wouldMatch = bestOppositeBid != null && (price + bestOppositeBid >= 100);
+  const verb = wouldMatch ? 'Buy' : 'Bid';
+
   async function submit() {
     setError(''); setSuccess('');
     if (cost > user.balance) { setError('Insufficient balance'); return; }
@@ -155,7 +162,7 @@ export default function TradePanel({ contract, onTraded }) {
         disabled={loading || cost > user.balance}
         className={`w-full py-3 rounded-xl text-white font-bold text-sm transition-colors disabled:opacity-50 ${side === 'YES' ? 'bg-yes hover:bg-yes-light' : 'bg-no hover:bg-no-light'}`}
       >
-        {loading ? 'Placing...' : `Buy ${side} · 🪙 ${cost}`}
+        {loading ? 'Placing...' : `${verb} ${side} · 🪙 ${cost}`}
       </button>
     </div>
   );
