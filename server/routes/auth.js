@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../db');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../email');
+const { stripTags } = require('../sanitize');
 
 const router = express.Router();
 
@@ -23,9 +24,14 @@ router.post('/register', async (req, res) => {
   const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim());
   if (existingEmail) return res.status(409).json({ error: 'An account with this email already exists' });
 
+  // Enforce display-name length rule up front so we return a clear error
+  // instead of silently truncating later.
+  const rawName = typeof display_name === 'string' ? stripTags(display_name) : null;
+  if (rawName && rawName.length > 40) return res.status(400).json({ error: 'Display name must be 40 characters or fewer' });
+
   try {
     const hash = await bcrypt.hash(password, 10);
-    const name = display_name?.trim() || null;
+    const name = rawName || null;
     const token = generateToken();
     const expires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
@@ -177,7 +183,8 @@ router.patch('/me', (req, res) => {
   const updates = [];
   const params = [];
   if (typeof display_name === 'string') {
-    const name = display_name.trim().slice(0, 40);
+    const name = stripTags(display_name);
+    if (name.length > 40) return res.status(400).json({ error: 'Display name must be 40 characters or fewer' });
     updates.push('display_name = ?'); params.push(name || null);
   }
   if (typeof avatar_emoji === 'string' && avatar_emoji) {

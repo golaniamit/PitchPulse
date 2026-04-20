@@ -1,21 +1,33 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth } = require('../middleware');
+const { requireAuth, rateLimit } = require('../middleware');
 const { matchOrders, getOrderBook } = require('../engine/orderBook');
 const { broadcast } = require('../websocket');
 
 const router = express.Router();
 
+// Rate limits — protect the matching engine and WS broadcast loop from a
+// buggy client or mischief. Balances already bound real-money abuse.
+const placeLimiter  = rateLimit({ windowMs: 60_000, max: 60,  name: 'orders' });
+const cancelLimiter = rateLimit({ windowMs: 60_000, max: 120, name: 'cancels' });
+
 // Place an order
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, placeLimiter, (req, res) => {
   const { contract_id, side, price, quantity } = req.body;
 
-  if (!contract_id || !side || !price || !quantity) {
+  // Presence check uses `== null` (not `!x`) so that price=0 or quantity=0
+  // falls through to the bounds check below with a clear message, rather
+  // than being reported as "missing".
+  if (contract_id == null || side == null || price == null || quantity == null) {
     return res.status(400).json({ error: 'contract_id, side, price, quantity required' });
   }
   if (!['YES', 'NO'].includes(side)) return res.status(400).json({ error: 'Side must be YES or NO' });
-  if (price < 1 || price > 99) return res.status(400).json({ error: 'Price must be 1–99' });
-  if (quantity < 1) return res.status(400).json({ error: 'Quantity must be at least 1' });
+  if (!Number.isInteger(price) || price < 1 || price > 99) {
+    return res.status(400).json({ error: 'Price must be a whole number from 1 to 99' });
+  }
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    return res.status(400).json({ error: 'Quantity must be a whole number ≥ 1' });
+  }
 
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contract_id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
@@ -104,7 +116,7 @@ router.post('/', requireAuth, (req, res) => {
 });
 
 // Cancel an order
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', requireAuth, cancelLimiter, (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
   if (!order) return res.status(404).json({ error: 'Order not found' });
   if (order.user_id !== req.session.userId) return res.status(403).json({ error: 'Not your order' });
