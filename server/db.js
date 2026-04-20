@@ -110,6 +110,18 @@ function initSchema() {
       value TEXT NOT NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- Web Push subscriptions (one row per (user, browser install)).
+    -- Endpoint is the unique id coming back from the browser's PushManager.subscribe.
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
   `);
 }
 
@@ -124,9 +136,37 @@ try { db.exec(`ALTER TABLE users ADD COLUMN verify_token_expires INTEGER`); } ca
 try { db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires INTEGER`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN tour_seen INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN is_test INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN avatar_emoji TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN balance_at_day_start INTEGER`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN snapshot_date TEXT`); } catch (_) {}
 
 // Grandfather only old accounts (no email = created before verification was added)
 // Never touch new registrations that are intentionally unverified
 db.exec(`UPDATE users SET is_verified = 1 WHERE email IS NULL`);
+
+// Flag obvious existing test users so they're hidden from the leaderboard.
+// Additions can be made by flipping the flag directly in the DB.
+db.exec(`
+  UPDATE users SET is_test = 1 WHERE username IN (
+    'testuser1','testuser2','testuser3',
+    'tourtest','sqtest',
+    'golgames','golgames1','golgames2','golpolmol','aa',
+    'pm_reviewer'
+  ) AND is_test = 0
+`);
+
+// Auto-assign a deterministic emoji avatar to any user that doesn't have one.
+// Curated list avoids ambiguous/offensive glyphs.
+const EMOJI_POOL = ['🏏','🏆','🎯','🔥','⚡','🦁','🐘','🦅','🐯','🌟','💎','🚀','🦄','🐉','🦈','🦉','🐺','🐬','🦊','🐨'];
+(function seedAvatars() {
+  const users = db.prepare('SELECT id, username FROM users WHERE avatar_emoji IS NULL').all();
+  const upd = db.prepare('UPDATE users SET avatar_emoji = ? WHERE id = ?');
+  for (const u of users) {
+    let h = 0;
+    for (let i = 0; i < u.username.length; i++) h = u.username.charCodeAt(i) + ((h << 5) - h);
+    upd.run(EMOJI_POOL[Math.abs(h) % EMOJI_POOL.length], u.id);
+  }
+})();
 
 module.exports = db;

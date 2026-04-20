@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import PriceChart from '../components/PriceChart';
 import OrderBook from '../components/OrderBook';
 import TradePanel from '../components/TradePanel';
 import MyOpenOrders from '../components/MyOpenOrders';
+import InfoTooltip from '../components/InfoTooltip';
 
 export default function Contract() {
   const { id } = useParams();
@@ -14,6 +15,8 @@ export default function Contract() {
   const [history, setHistory] = useState([]);
   const [book, setBook] = useState({ bids: [], asks: [] });
   const [loading, setLoading] = useState(true);
+  const [showBook, setShowBook] = useState(false);
+  const [showNames, setShowNames] = useState(false);
   const chartUpdateRef = useRef(null);
 
   async function load() {
@@ -69,8 +72,18 @@ export default function Contract() {
     cancelled: 'bg-red-100 text-red-800',
   };
 
+  const bookCount = (book.bids?.length || 0) + (book.asks?.length || 0);
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      {/* Mobile breadcrumb — not shown on sm+ since the top nav is already compact */}
+      <Link
+        to="/"
+        className="sm:hidden inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-navy-800 dark:hover:text-gray-200 transition-colors"
+      >
+        ← Markets
+      </Link>
+
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
         <div className="flex items-start justify-between mb-3">
@@ -98,10 +111,33 @@ export default function Contract() {
         </div>
       )}
 
-      {/* Order Book */}
+      {/* Order Book — collapsed by default to reduce visual noise for casual users */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 px-1">Order Book</h2>
-        <OrderBook bids={book.bids} asks={book.asks} />
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowBook(s => !s)}
+              className="flex items-center gap-1.5 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+            >
+              <span className={`text-xs transition-transform ${showBook ? 'rotate-90' : ''}`}>▸</span>
+              Order Book
+              <span className="text-xs font-normal text-gray-400 dark:text-gray-500">
+                ({bookCount} {bookCount === 1 ? 'order' : 'orders'})
+              </span>
+            </button>
+            <InfoTooltip text="Live list of offers other players have placed but aren't yet matched. YES side shows people willing to bet YES at each price; NO side is the opposite. Think of it as a trading floor — nothing happens until two sides agree." />
+          </div>
+          {showBook && (
+            <button
+              onClick={() => setShowNames(s => !s)}
+              className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              title={showNames ? 'Hide usernames' : 'Show usernames'}
+            >
+              {showNames ? 'Hide names' : 'Show names'}
+            </button>
+          )}
+        </div>
+        {showBook && <OrderBook bids={book.bids} asks={book.asks} anonymize={!showNames} />}
       </div>
 
       {/* Trade Panel */}

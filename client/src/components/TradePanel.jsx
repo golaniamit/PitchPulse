@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import InfoTooltip from './InfoTooltip';
 
 export default function TradePanel({ contract, onTraded }) {
   const { user } = useAuth();
@@ -84,7 +85,10 @@ export default function TradePanel({ contract, onTraded }) {
       {/* Price */}
       <div>
         <div className="flex justify-between items-center mb-2">
-          <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Price (1–99)</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5">
+            Price (1–99)
+            <InfoTooltip text="The price you're willing to pay per contract, from 1–99. It doubles as the probability you're betting at — price 42 means you think this has a 42% chance of happening. You win 🪙 100 per contract if correct." />
+          </label>
           <div className="w-14 text-center font-bold text-navy-800 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg py-1.5 text-sm">
             {price}
           </div>

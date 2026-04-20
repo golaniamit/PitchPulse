@@ -1,11 +1,34 @@
-export default function OrderBook({ bids = [], asks = [] }) {
+export default function OrderBook({ bids = [], asks = [], anonymize = true }) {
   const maxBidSize = Math.max(...bids.map(b => b.quantity - b.quantity_filled), 1);
   const maxAskSize = Math.max(...asks.map(a => a.quantity - a.quantity_filled), 1);
+
+  // Stable anonymous label per user_id, scoped to this render's order book.
+  // Same user gets the same label across rows; consistent letters A, B, C…
+  const idToLabel = new Map();
+  if (anonymize) {
+    const uniqueIds = [];
+    [...bids, ...asks].forEach(o => {
+      if (o.user_id != null && !idToLabel.has(o.user_id)) {
+        idToLabel.set(o.user_id, null);
+        uniqueIds.push(o.user_id);
+      }
+    });
+    uniqueIds.forEach((id, i) => {
+      // A, B, …, Z, AA, AB, …
+      let n = i, s = '';
+      do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
+      idToLabel.set(id, 'Trader ' + s);
+    });
+  }
+  const nameFor = (o) => anonymize
+    ? (idToLabel.get(o.user_id) || 'Trader')
+    : (o.username || 'anon');
 
   const Row = ({ order, side }) => {
     const remaining = order.quantity - order.quantity_filled;
     const isYes = side === 'YES';
     const pct = Math.round((remaining / (isYes ? maxBidSize : maxAskSize)) * 100);
+    const label = nameFor(order);
     return (
       <div className="relative flex items-center text-xs py-1 px-2">
         <div
@@ -14,7 +37,7 @@ export default function OrderBook({ bids = [], asks = [] }) {
         />
         {isYes ? (
           <>
-            <span className="hidden sm:block flex-1 text-gray-400 dark:text-gray-500 truncate">{order.username || 'anon'}</span>
+            <span className="hidden sm:block flex-1 text-gray-400 dark:text-gray-500 truncate">{label}</span>
             <span className="flex-1 sm:flex-none text-gray-500 dark:text-gray-400 w-6 text-right">{remaining}</span>
             <span className="font-semibold text-yes w-8 text-right">{order.price}¢</span>
           </>
@@ -22,7 +45,7 @@ export default function OrderBook({ bids = [], asks = [] }) {
           <>
             <span className="font-semibold text-no w-8">{order.price}¢</span>
             <span className="flex-1 sm:flex-none text-gray-500 dark:text-gray-400 w-6 text-right">{remaining}</span>
-            <span className="hidden sm:block flex-1 text-right text-gray-400 dark:text-gray-500 truncate">{order.username || 'anon'}</span>
+            <span className="hidden sm:block flex-1 text-right text-gray-400 dark:text-gray-500 truncate">{label}</span>
           </>
         )}
       </div>

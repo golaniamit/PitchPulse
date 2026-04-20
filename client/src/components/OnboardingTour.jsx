@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 // type: 'intro' | 'outro' | 'spotlight'
@@ -115,12 +116,15 @@ export function useTour(user) {
 /* ─── Tour component ───────────────────────────────────────────────── */
 export default function OnboardingTour({ onClose }) {
   const { markTourSeen } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState(null);
   const [visible, setVisible] = useState(false); // controls fade in/out
+  const finishingRef = useRef(false); // prevents double-finish on rapid Next-clicks
 
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
+  // Clamp access: if rapid clicks somehow advance step past the array, use last.
+  const current = STEPS[Math.min(step, STEPS.length - 1)];
+  const isLast = step >= STEPS.length - 1;
   const isSpotlight = current.type === 'spotlight';
 
   /* Measure the target element and fade in */
@@ -153,14 +157,41 @@ export default function OnboardingTour({ onClose }) {
     return () => window.removeEventListener('resize', onResize);
   }, [current.target, isSpotlight]);
 
-  function finish() {
-    markTourSeen();  // persists to server — works on all browsers/devices
-    onClose();
+  // Pick the simplest active market to land on after the tour — prefers a contract
+  // that already has trades (shows a real price bar) so the user's first screen is
+  // the most confidence-building one rather than a random "be the first" card.
+  async function pickLandingContract() {
+    try {
+      const r = await fetch('/api/contracts', { credentials: 'include' });
+      const d = await r.json();
+      const active = (d.contracts || []).filter(c => c.status === 'active');
+      if (active.length === 0) return null;
+      // Prefer one with trades and both sides of the book populated.
+      const best = active.find(c => c.has_trades && c.best_yes_bid != null && c.best_no_bid != null)
+                || active.find(c => c.has_trades)
+                || active[0];
+      return best?.id ?? null;
+    } catch { return null; }
   }
 
+  async function finish() {
+    if (finishingRef.current) return;   // idempotent under rapid clicks
+    finishingRef.current = true;
+    markTourSeen();  // persists to server — works on all browsers/devices
+    const landingId = await pickLandingContract();
+    onClose();
+    if (landingId) navigate(`/contract/${landingId}`);
+  }
+
+  // Use functional setter so rapid clicks can't race past the last step.
   function next() {
-    if (isLast) finish();
-    else setStep(s => s + 1);
+    setStep(s => {
+      if (s >= STEPS.length - 1) {
+        queueMicrotask(finish);
+        return s;
+      }
+      return s + 1;
+    });
   }
 
   /* ── Intro / Outro — full overlay centered modal ─────────────────── */

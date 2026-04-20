@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,6 +30,16 @@ function buildTitle(type, fields) {
 }
 
 function ContractFields({ type, fields, onChange, teams }) {
+  // All fields are wrapped by Labeled so the admin doesn't rely on placeholder-only hints
+  // (which disappear the moment they start typing). Critical during a live match.
+  const Labeled = ({ label, children }) => (
+    <label className="block">
+      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
   const inp = (name, placeholder, type2 = 'text') => (
     <input
       type={type2}
@@ -45,59 +55,66 @@ function ContractFields({ type, fields, onChange, teams }) {
       onChange={e => onChange(name, e.target.value)}
       className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-navy-800"
     >
-      <option value="">Select...</option>
+      <option value="">Select…</option>
       {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );
-  // Team picker — dropdown if match teams are known, text input fallback
   const teamPicker = (name, placeholder) => teams?.length >= 2
     ? sel(name, teams.map(t => ({ value: t, label: t })))
     : inp(name, placeholder);
 
+  const OP_OPTIONS = [
+    { value: '>=', label: '≥ (at least)' },
+    { value: '>',  label: '> (more than)' },
+    { value: '<=', label: '≤ (at most)'   },
+  ];
+
   if (type === 'runs_over') return (
-    <div className="grid grid-cols-2 gap-2">
-      {teamPicker('team', 'Team (e.g. CSK)')}
-      {inp('over', 'Over number', 'number')}
-      {sel('operator', [{value:'>=',label:'≥ (at least)'},{value:'>',label:'> (more than)'},{value:'<=',label:'≤ (at most)'}])}
-      {inp('threshold', 'Runs threshold', 'number')}
+    <div className="grid grid-cols-2 gap-3">
+      <Labeled label="Team">{teamPicker('team', 'e.g. CSK')}</Labeled>
+      <Labeled label="Over number">{inp('over', '1–20', 'number')}</Labeled>
+      <Labeled label="Operator">{sel('operator', OP_OPTIONS)}</Labeled>
+      <Labeled label="Runs threshold">{inp('threshold', 'e.g. 10', 'number')}</Labeled>
     </div>
   );
   if (type === 'wicket_over') return (
-    <div className="grid grid-cols-2 gap-2">
-      {teamPicker('team', 'Batting team')}
-      {inp('over', 'Over number', 'number')}
-      {inp('min_wickets', 'Min wickets', 'number')}
+    <div className="grid grid-cols-2 gap-3">
+      <Labeled label="Batting team">{teamPicker('team', 'e.g. CSK')}</Labeled>
+      <Labeled label="Over number">{inp('over', '1–20', 'number')}</Labeled>
+      <Labeled label="Minimum wickets">{inp('min_wickets', 'e.g. 1', 'number')}</Labeled>
     </div>
   );
   if (type === 'team_total') return (
-    <div className="grid grid-cols-2 gap-2">
-      {teamPicker('team', 'Team')}
-      {inp('over', 'By over', 'number')}
-      {sel('operator', [{value:'>=',label:'≥ (at least)'},{value:'>',label:'> (more than)'},{value:'<=',label:'≤ (at most)'}])}
-      {inp('threshold', 'Run target', 'number')}
+    <div className="grid grid-cols-2 gap-3">
+      <Labeled label="Team">{teamPicker('team', 'e.g. CSK')}</Labeled>
+      <Labeled label="By end of over">{inp('over', '1–20', 'number')}</Labeled>
+      <Labeled label="Operator">{sel('operator', OP_OPTIONS)}</Labeled>
+      <Labeled label="Run target">{inp('threshold', 'e.g. 150', 'number')}</Labeled>
     </div>
   );
   if (type === 'batsman_milestone') return (
-    <div className="grid grid-cols-2 gap-2">
-      {inp('batsman', 'Batsman name')}
-      {inp('milestone', 'Milestone runs', 'number')}
-      {inp('over', 'By over', 'number')}
+    <div className="grid grid-cols-2 gap-3">
+      <Labeled label="Batsman name">{inp('batsman', 'e.g. MS Dhoni')}</Labeled>
+      <Labeled label="Milestone (runs)">{inp('milestone', 'e.g. 50', 'number')}</Labeled>
+      <Labeled label="By end of over">{inp('over', '1–20', 'number')}</Labeled>
     </div>
   );
   if (type === 'boundary_over') return (
-    <div className="grid grid-cols-2 gap-2">
-      {teamPicker('team', 'Team')}
-      {inp('over', 'Over number', 'number')}
-      {sel('boundary_type', [{value:'six',label:'Six'},{value:'four',label:'Four'}])}
+    <div className="grid grid-cols-2 gap-3">
+      <Labeled label="Team">{teamPicker('team', 'e.g. CSK')}</Labeled>
+      <Labeled label="Over number">{inp('over', '1–20', 'number')}</Labeled>
+      <Labeled label="Boundary type">{sel('boundary_type', [{value:'six',label:'Six'},{value:'four',label:'Four'}])}</Labeled>
     </div>
   );
   if (type === 'manual') return (
-    <input
-      placeholder="Custom contract question..."
-      value={fields.custom_title || ''}
-      onChange={e => onChange('custom_title', e.target.value)}
-      className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-navy-800"
-    />
+    <Labeled label="Custom question">
+      <input
+        placeholder="e.g. Will MS Dhoni come out to bat today?"
+        value={fields.custom_title || ''}
+        onChange={e => onChange('custom_title', e.target.value)}
+        className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-navy-800"
+      />
+    </Labeled>
   );
   return null;
 }
@@ -219,6 +236,7 @@ function MatchSelector({ onTeamsChange }) {
   const [pollMinutes, setPollMinutes] = useState(2);
   const [intervalInput, setIntervalInput] = useState('2');
   const [savingInterval, setSavingInterval] = useState(false);
+  const [iplOnly, setIplOnly] = useState(true);   // most relevant to this app; still allows other if toggled off
 
   useEffect(() => {
     fetch('/api/admin/active-match', { credentials: 'include' })
@@ -384,8 +402,22 @@ function MatchSelector({ onTeamsChange }) {
         </button>
       ) : (
         <div className="space-y-2">
-          <p className="text-xs text-gray-400">Tap a match to set it as active:</p>
-          {matches.map(m => (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-400">Tap a match to set it as active:</p>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={iplOnly}
+                onChange={e => setIplOnly(e.target.checked)}
+                className="accent-navy-800 w-3.5 h-3.5"
+              />
+              IPL only
+            </label>
+          </div>
+          {(iplOnly
+            ? matches.filter(m => /ipl|indian premier league/i.test([m.name, m.matchType].filter(Boolean).join(' ')))
+            : matches
+          ).map(m => (
             <button
               key={m.id}
               onClick={() => selectMatch(m)}
@@ -535,6 +567,8 @@ export default function Admin() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [resolvingContract, setResolvingContract] = useState(null);
+  const [adminTab, setAdminTab] = useState('all');       // filter for the "All contracts" list
+  const builderRef = useRef(null);                        // lets "Duplicate" scroll back to the builder
 
   useEffect(() => {
     if (!user?.is_admin) { navigate('/'); return; }
@@ -598,6 +632,29 @@ export default function Admin() {
     loadContracts();
   }
 
+  // "Duplicate" — pre-fills the contract builder from an existing contract's data,
+  // then scrolls the admin back to the builder so they can tweak and re-create.
+  function duplicateContract(c) {
+    setSelectedType(c.type);
+    setResolveMode(c.resolve_mode || 'manual');
+    setStatus('draft');
+    let parsed = {};
+    try { parsed = c.condition_json ? JSON.parse(c.condition_json) : {}; } catch {}
+    // Map the condition JSON back to form field names (same as buildConditionJson, reversed).
+    const mapped = { ...parsed };
+    if (c.type === 'manual') mapped.custom_title = c.title;
+    setFields(mapped);
+    builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // 5.2 — filter the admin's "All Contracts" list by status
+  const ADMIN_TABS = ['all', 'active', 'draft', 'resolved', 'cancelled'];
+  const tabCounts = ADMIN_TABS.reduce((acc, t) => {
+    acc[t] = t === 'all' ? contracts.length : contracts.filter(c => c.status === t).length;
+    return acc;
+  }, {});
+  const filteredContracts = adminTab === 'all' ? contracts : contracts.filter(c => c.status === adminTab);
+
   const statusColor = { active: 'text-green-700 bg-green-50', draft: 'text-gray-600 bg-gray-50', resolved: 'text-blue-700 bg-blue-50', cancelled: 'text-red-600 bg-red-50' };
 
 
@@ -620,7 +677,7 @@ export default function Admin() {
         <BotsControl />
 
         {/* Contract builder */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+        <div ref={builderRef} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
           <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-4">Create Contract</h2>
 
           <div className="grid grid-cols-3 gap-2 mb-4">
@@ -680,9 +737,29 @@ export default function Admin() {
         {/* All contracts dashboard */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
           <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-4">All Contracts</h2>
+
+          {/* Status filter tabs */}
+          <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-4">
+            {ADMIN_TABS.map(t => (
+              <button
+                key={t}
+                onClick={() => setAdminTab(t)}
+                className={`flex-1 min-w-[70px] py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                  adminTab === t
+                    ? 'bg-white dark:bg-gray-700 text-navy-800 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                {t} <span className="font-normal text-gray-400">({tabCounts[t]})</span>
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-3">
-            {contracts.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No contracts yet</p>}
-            {contracts.map(c => (
+            {filteredContracts.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-4">No {adminTab === 'all' ? '' : adminTab + ' '}contracts</p>
+            )}
+            {filteredContracts.map(c => (
               <div key={c.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3 dark:bg-gray-750">
                 <div className="flex items-start justify-between mb-2">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1 pr-2">{c.title}</p>
@@ -691,7 +768,14 @@ export default function Admin() {
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs text-gray-400">{c.type} · {c.resolve_mode} · {c.current_price}¢</span>
+                  <div className="text-xs text-gray-400 flex flex-wrap gap-x-2 gap-y-0.5">
+                    <span>{c.type} · {c.resolve_mode} · {c.current_price}¢</span>
+                    {(c.trader_count > 0 || c.volume > 0) && (
+                      <span>
+                        · 🪙 {c.volume?.toLocaleString() || 0} traded · {c.trader_count || 0} trader{c.trader_count === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {c.status === 'draft' && (
                       <button onClick={() => setContractStatus(c.id, 'active')} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">Activate</button>
@@ -707,6 +791,14 @@ export default function Admin() {
                         {c.resolve_mode === 'auto' ? 'Force resolve' : 'Resolve'}
                       </button>
                     )}
+                    {/* Duplicate — available for every contract */}
+                    <button
+                      onClick={() => duplicateContract(c)}
+                      title="Duplicate as a new draft"
+                      className="text-xs text-gray-500 hover:text-navy-800 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      ⎘ Duplicate
+                    </button>
                     {c.status === 'active' && (
                       <button onClick={() => setContractStatus(c.id, 'cancelled')} className="text-xs text-gray-400 hover:text-red-600 px-2 py-1.5">✕</button>
                     )}

@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import ContractCard from '../components/ContractCard';
 
-const TABS = ['active', 'resolved', 'all'];
+// "all" is only useful to admins (it's the one tab that includes drafts + cancelled).
+// Regular users see Active + Resolved only.
+const TABS_USER  = ['active', 'resolved'];
+const TABS_ADMIN = ['active', 'resolved', 'all'];
 
 /* ─── Dummy contracts shown during the onboarding tour ──────────────
    Two cards covering the main states users will actually encounter:
@@ -37,25 +41,45 @@ const DEMO_CONTRACTS = [
 
 export default function Home({ openTour, tourActive }) {
   const { on, send, connected } = useSocket();
+  const { user } = useAuth();
+  const isAdmin = !!user?.is_admin;
   const [contracts, setContracts] = useState([]);
   const [tab, setTab] = useState('active');
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const TABS = isAdmin ? TABS_ADMIN : TABS_USER;
 
   async function load() {
     const r = await fetch('/api/contracts', { credentials: 'include' });
     const data = await r.json();
-    setContracts(data.contracts || []);
+    setContracts(dedupe(data.contracts || []));
     setLoading(false);
+  }
+
+  // Guarantees no two contracts in state share an id, regardless of WS/load races.
+  function dedupe(list) {
+    return [...new Map(list.map(c => [c.id, c])).values()];
+  }
+  // Replace or prepend a contract, keeping ids unique.
+  function upsert(cs, contract) {
+    const without = cs.filter(c => c.id !== contract.id);
+    return [contract, ...without];
   }
 
   useEffect(() => {
     load();
   }, []);
 
+  // Non-admins must not see drafts or cancelled contracts arriving via WS.
+  const isVisibleStatus = (s) => s === 'active' || s === 'resolved';
+
   // Live updates
   useEffect(() => {
     const unsubs = [
-      on('contract_created', (msg) => setContracts(cs => cs.some(c => c.id === msg.contract.id) ? cs : [msg.contract, ...cs])),
+      on('contract_created', (msg) => setContracts(cs => {
+        if (!isAdmin && !isVisibleStatus(msg.contract.status)) return cs;
+        return upsert(cs, msg.contract);
+      })),
       on('contract_resolved', (msg) => {
         setContracts(cs => cs.map(c =>
           c.id === msg.contractId ? { ...c, status: 'resolved', resolution: msg.resolution } : c
@@ -68,9 +92,11 @@ export default function Home({ openTour, tourActive }) {
       }),
       on('contract_updated', (msg) => {
         setContracts(cs => {
-          const exists = cs.some(c => c.id === msg.contract.id);
-          if (exists) return cs.map(c => c.id === msg.contract.id ? msg.contract : c);
-          return [msg.contract, ...cs];
+          // Non-admin: if the new status is hidden, drop it from state (or never add).
+          if (!isAdmin && !isVisibleStatus(msg.contract.status)) {
+            return cs.filter(c => c.id !== msg.contract.id);
+          }
+          return upsert(cs, msg.contract);
         });
       }),
       on('orderbook_update', (msg) => {
@@ -83,7 +109,7 @@ export default function Home({ openTour, tourActive }) {
       }),
     ];
     return () => unsubs.forEach(fn => fn?.());
-  }, [on]);
+  }, [on, isAdmin]);
 
   // Subscribe to price / orderbook updates for every contract on screen.
   // Re-runs when the set of contract IDs changes or the socket reconnects.
@@ -100,19 +126,22 @@ export default function Home({ openTour, tourActive }) {
   // ignoring the real API data. The real data keeps loading in the
   // background so the switch back is instant when the tour ends.
   const countSource = tourActive ? DEMO_CONTRACTS : contracts;
+  const q = search.trim().toLowerCase();
   const displayList = tourActive
     ? DEMO_CONTRACTS
-    : contracts.filter(c => {
-        if (tab === 'active')   return c.status === 'active';
-        if (tab === 'resolved') return c.status === 'resolved';
-        return true;
-      });
+    : contracts
+        .filter(c => {
+          if (tab === 'active')   return c.status === 'active';
+          if (tab === 'resolved') return c.status === 'resolved';
+          return true;
+        })
+        .filter(c => !q || c.title.toLowerCase().includes(q));
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
 
-      {/* Tabs + How it works */}
-      <div className="flex items-center gap-2 mb-6">
+      {/* Tabs + Search + How it works */}
+      <div className="flex items-center gap-2 mb-4">
         <div className="flex flex-1 gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
           {TABS.map(t => (
             <button
@@ -136,18 +165,39 @@ export default function Home({ openTour, tourActive }) {
         >?</button>
       </div>
 
+      {/* Search */}
+      {!tourActive && contracts.length > 2 && (
+        <div className="mb-6 relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none">⌕</span>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search markets…"
+            className="w-full pl-8 pr-3 py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-800/30"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+              aria-label="Clear search"
+            >✕</button>
+          )}
+        </div>
+      )}
+
       {!tourActive && loading && (
         <div className="text-center py-12 text-gray-400">Loading markets...</div>
       )}
 
       {!tourActive && !loading && displayList.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-400 text-sm">No {tab} contracts</p>
-          {tab === 'active' && <p className="text-gray-300 text-xs mt-1">Admin can create contracts in the Admin panel</p>}
+          <p className="text-gray-400 text-sm">{q ? `No markets match "${search}"` : `No ${tab} contracts`}</p>
+          {!q && tab === 'active' && <p className="text-gray-300 text-xs mt-1">Admin can create contracts in the Admin panel</p>}
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {displayList.map((c, i) => (
           <ContractCard
             key={c.id}

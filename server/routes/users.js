@@ -16,19 +16,24 @@ router.get('/portfolio', requireAuth, (req, res) => {
   res.json({ positions });
 });
 
-// Get leaderboard
+// Get leaderboard — supports ?period=today|all. Bots and test users excluded.
 router.get('/leaderboard', requireAuth, (req, res) => {
+  const period = req.query.period === 'today' ? 'today' : 'all';
+  const today = new Date().toISOString().slice(0, 10);
   const users = db.prepare(`
-    SELECT u.id, u.username, u.balance,
-      u.balance - 10000 as pnl,
+    SELECT u.id, u.username, u.display_name, u.avatar_emoji, u.balance,
+      u.balance - 10000 as pnl_all,
+      CASE WHEN u.snapshot_date = ? THEN u.balance - COALESCE(u.balance_at_day_start, u.balance) ELSE 0 END as pnl_today,
       (SELECT COUNT(*) FROM trades t
         JOIN orders o ON (t.buyer_order_id = o.id OR t.seller_order_id = o.id)
         WHERE o.user_id = u.id) as trade_count
     FROM users u
-    WHERE u.is_bot = 0
-    ORDER BY u.balance DESC
-  `).all();
-  res.json({ leaderboard: users });
+    WHERE u.is_bot = 0 AND COALESCE(u.is_test, 0) = 0
+  `).all(today);
+  // Sort in Node so we can respect the period the client asked for.
+  const key = period === 'today' ? 'pnl_today' : 'balance';
+  users.sort((a, b) => b[key] - a[key]);
+  res.json({ leaderboard: users, period });
 });
 
 // Settle a position at current market price (active contracts only)

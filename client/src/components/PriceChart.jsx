@@ -51,7 +51,7 @@ export default function PriceChart({ history, contractId, onPriceUpdate }) {
       timeScale: {
         borderColor: c.border,
         timeVisible: true,
-        secondsVisible: false,
+        secondsVisible: true,  // sparse price history can have points in the same minute; showing seconds keeps ticks distinct
       },
       crosshair: { mode: 1 },
       width: containerRef.current.clientWidth,

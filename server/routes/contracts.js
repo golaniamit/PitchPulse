@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware');
 const { broadcast } = require('../websocket');
+const { pushToUser } = require('../engine/push');
 
 const router = express.Router();
 
@@ -9,6 +10,18 @@ const router = express.Router();
 const bestYesBidStmt = db.prepare("SELECT MAX(price) as best FROM orders WHERE contract_id = ? AND side = 'YES' AND status IN ('open','partial')");
 const bestNoBidStmt  = db.prepare("SELECT MAX(price) as best FROM orders WHERE contract_id = ? AND side = 'NO'  AND status IN ('open','partial')");
 const hasTradesStmt  = db.prepare("SELECT COUNT(*) as cnt FROM trades WHERE contract_id = ?");
+// Total coins that have changed hands = sum of quantity × 100 across all executed trades.
+const volumeStmt     = db.prepare("SELECT COALESCE(SUM(quantity * 100), 0) as vol FROM trades WHERE contract_id = ?");
+// Distinct non-bot users who have ever traded or have an outstanding order on this contract.
+const traderCountStmt = db.prepare(`
+  SELECT COUNT(DISTINCT x.user_id) as n FROM (
+    SELECT user_id FROM positions WHERE contract_id = ?
+    UNION
+    SELECT user_id FROM orders    WHERE contract_id = ?
+  ) x
+  JOIN users u ON u.id = x.user_id
+  WHERE u.is_bot = 0
+`);
 
 function enrichContract(c) {
   return {
@@ -16,27 +29,37 @@ function enrichContract(c) {
     best_yes_bid: bestYesBidStmt.get(c.id)?.best ?? null,
     best_no_bid:  bestNoBidStmt.get(c.id)?.best  ?? null,
     has_trades:   hasTradesStmt.get(c.id).cnt > 0,
+    volume:       volumeStmt.get(c.id).vol,
+    trader_count: traderCountStmt.get(c.id, c.id).n,
   };
 }
 
-// List contracts (with filter)
+// List contracts (with filter). Non-admins only see active + resolved.
 router.get('/', requireAuth, (req, res) => {
   const { status } = req.query;
-  let query = 'SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id';
+  const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
+  const isAdmin = !!user?.is_admin;
+
+  const where = [];
   const params = [];
-  if (status) {
-    query += ' WHERE c.status = ?';
-    params.push(status);
-  }
+  if (status) { where.push('c.status = ?'); params.push(status); }
+  if (!isAdmin) where.push("c.status IN ('active','resolved')");
+
+  let query = 'SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id';
+  if (where.length) query += ' WHERE ' + where.join(' AND ');
   query += ' ORDER BY c.created_at DESC';
   const contracts = db.prepare(query).all(...params).map(enrichContract);
   res.json({ contracts });
 });
 
-// Get single contract
+// Get single contract. Draft/cancelled return 404 to non-admins (don't leak existence).
 router.get('/:id', requireAuth, (req, res) => {
   const contract = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
+  if (contract.status === 'draft' || contract.status === 'cancelled') {
+    const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
+    if (!user?.is_admin) return res.status(404).json({ error: 'Contract not found' });
+  }
   res.json({ contract: enrichContract(contract) });
 });
 
@@ -68,7 +91,10 @@ router.post('/', requireAdmin, (req, res) => {
   // Add initial price history point
   db.prepare('INSERT INTO price_history (contract_id, price) VALUES (?, ?)').run(contract.id, 50);
 
-  broadcast({ type: 'contract_created', contract: enrichContract(contract) });
+  // Only broadcast once the contract is visible to users
+  if (contract.status === 'active') {
+    broadcast({ type: 'contract_created', contract: enrichContract(contract) });
+  }
 
   res.status(201).json({ contract: enrichContract(contract) });
 });
@@ -90,7 +116,12 @@ router.patch('/:id/status', requireAdmin, (req, res) => {
   }
 
   const updated = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(req.params.id);
-  broadcast({ type: 'contract_updated', contract: enrichContract(updated) });
+  // Only broadcast if it was visible, or is becoming visible — avoids leaking draft titles via draft→cancelled.
+  const wasVisible = contract.status === 'active' || contract.status === 'resolved';
+  const nowVisible = status === 'active' || status === 'resolved';
+  if (wasVisible || nowVisible) {
+    broadcast({ type: 'contract_updated', contract: enrichContract(updated) });
+  }
   res.json({ contract: enrichContract(updated) });
 });
 
@@ -129,17 +160,28 @@ function cancelContractOrders(contractId) {
 
 // Settle a contract: pay winners, cancel open orders
 function settleContract(contractId, resolution) {
+  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId);
   db.prepare("UPDATE contracts SET status = 'resolved', resolution = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?").run(resolution, contractId);
 
   // Pay out positions
   const positions = db.prepare('SELECT * FROM positions WHERE contract_id = ?').all(contractId);
   for (const pos of positions) {
-    if (pos.side === resolution) {
+    const won = pos.side === resolution;
+    if (won) {
       const payout = pos.quantity * 100;
       db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(payout, pos.user_id);
       const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(pos.user_id).balance;
       broadcast({ type: 'balance_update', userId: pos.user_id, newBalance });
     }
+    // Fire-and-forget push to both winners and losers so they know the outcome.
+    // Bots get a no-op (no subscriptions registered), so this is safe.
+    const staked = Math.round(pos.avg_price * pos.quantity);
+    const pnl = won ? (pos.quantity * 100 - staked) : -staked;
+    pushToUser(pos.user_id, {
+      title: won ? `You won 🪙 +${pnl}` : `You lost 🪙 ${pnl}`,
+      body: `"${contract?.title || 'Your market'}" settled ${resolution}.`,
+      url: '/portfolio',
+    }).catch(() => {});
   }
 
   // Cancel remaining open orders and refund

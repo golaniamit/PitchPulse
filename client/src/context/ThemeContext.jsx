@@ -5,7 +5,13 @@ const ThemeContext = createContext();
 export function ThemeProvider({ children }) {
   const [dark, setDark] = useState(() => {
     const saved = localStorage.getItem('theme');
-    return saved ? saved === 'dark' : false;
+    if (saved) return saved === 'dark';
+    // First-ever visit: honour the OS colour-scheme preference so users opening the
+    // app at night during a match land in dark mode without fiddling with the toggle.
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
   });
 
   useEffect(() => {

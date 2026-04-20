@@ -83,7 +83,23 @@ export default function ContractCard({ contract, tourTarget }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 pr-2">
           <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">{contract.title}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 uppercase tracking-wide">{contract.type.replace(/_/g, ' ')}</p>
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
+            <span className="uppercase tracking-wide">{contract.type.replace(/_/g, ' ')}</span>
+            {(contract.volume > 0 || contract.trader_count > 0) && (
+              <>
+                <span className="text-gray-300 dark:text-gray-600">·</span>
+                {contract.volume > 0 && (
+                  <span className="whitespace-nowrap">🪙 {contract.volume.toLocaleString()} traded</span>
+                )}
+                {contract.trader_count > 0 && (
+                  <>
+                    <span className="text-gray-300 dark:text-gray-600">·</span>
+                    <span className="whitespace-nowrap">{contract.trader_count} trader{contract.trader_count === 1 ? '' : 's'}</span>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_BADGE[contract.status] || 'bg-gray-100 text-gray-600'}`}>
           {contract.status}

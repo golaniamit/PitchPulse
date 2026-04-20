@@ -3,12 +3,19 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 
+const SORTS = {
+  newest:  { label: 'Newest',          fn: (a, b) => b.id - a.id },
+  biggest: { label: 'Biggest stake',   fn: (a, b) => (b.avg_price * b.quantity) - (a.avg_price * a.quantity) },
+  upside:  { label: 'Biggest upside',  fn: (a, b) => (b.quantity * 100 - b.avg_price * b.quantity) - (a.quantity * 100 - a.avg_price * a.quantity) },
+};
+
 export default function Portfolio() {
   const { user } = useAuth();
   const { on } = useSocket();
   const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [settling, setSettling] = useState(null);
+  const [sort, setSort] = useState('newest');
 
   async function load() {
     const r = await fetch('/api/users/portfolio', { credentials: 'include' });
@@ -44,8 +51,8 @@ export default function Portfolio() {
     }
   }
 
-  const open = positions.filter(p => p.status === 'active');
-  const resolved = positions.filter(p => p.status === 'resolved');
+  const open = positions.filter(p => p.status === 'active').slice().sort(SORTS[sort].fn);
+  const resolved = positions.filter(p => p.status === 'resolved').slice().sort((a, b) => b.id - a.id);
 
   // Summary numbers
   const totalStaked = open.reduce((sum, p) => sum + Math.round(p.avg_price * p.quantity), 0);
@@ -56,6 +63,14 @@ export default function Portfolio() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+
+      {/* Header with link to trade history */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-sm font-bold text-gray-400 uppercase tracking-widest">My portfolio</h1>
+        <Link to="/trades" className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-navy-800 dark:hover:text-gray-200 transition-colors">
+          Trade history →
+        </Link>
+      </div>
 
       {/* Summary card */}
       <div data-tour="portfolio-summary" className="bg-navy-800 rounded-2xl p-5 text-white">
@@ -87,7 +102,24 @@ export default function Portfolio() {
 
       {/* Open bets */}
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">My open bets</p>
+        <div className="flex items-end justify-between mb-3 gap-2 flex-wrap">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">My open bets</p>
+          {open.length > 1 && (
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+              {Object.entries(SORTS).map(([k, s]) => (
+                <button
+                  key={k}
+                  onClick={() => setSort(k)}
+                  className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    sort === k
+                      ? 'bg-white dark:bg-gray-700 text-navy-800 dark:text-white shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >{s.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {open.length === 0 && (
           <div className="text-center py-8 text-gray-300 text-sm">
@@ -191,7 +223,15 @@ export default function Portfolio() {
       {/* Settled history */}
       {resolved.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Settled history</p>
+          <div className="flex items-end justify-between mb-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Settled history</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              {(() => {
+                const won = resolved.filter(p => p.side === p.resolution).length;
+                return `${won} won · ${resolved.length - won} lost`;
+              })()}
+            </p>
+          </div>
           <div className="space-y-2">
             {resolved.map(pos => {
               const staked = Math.round(pos.avg_price * pos.quantity);
