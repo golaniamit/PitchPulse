@@ -32,7 +32,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
-app.use(session({
+const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'fallback_secret',
   resave: false,
   saveUninitialized: false,
@@ -40,7 +40,8 @@ app.use(session({
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   },
-}));
+});
+app.use(sessionMiddleware);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -77,7 +78,7 @@ async function ensureAdmin() {
 ensureAdmin().catch(console.error);
 
 // WebSocket
-ws.init(server);
+ws.init(server, sessionMiddleware);
 
 // Start bots — actual activity is controlled by the bots_intensity admin setting.
 startBots();

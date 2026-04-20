@@ -560,6 +560,58 @@ function BotsControl() {
   );
 }
 
+function UserStats() {
+  const [stats, setStats] = useState(null);
+
+  async function load() {
+    try {
+      const r = await fetch('/api/admin/user-stats', { credentials: 'include' });
+      if (!r.ok) return;
+      setStats(await r.json());
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const active = stats?.activeUsers ?? 0;
+  const total  = stats?.totalUsers ?? 0;
+  const names  = stats?.activeUsernames || [];
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-gray-900 dark:text-gray-100">Players</h2>
+        <span className="text-xs text-gray-400 dark:text-gray-500">live · refreshes every 5s</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-3">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Online now</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats === null ? '…' : active}</span>
+            <span className={`inline-block h-2 w-2 rounded-full ${active > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-300 dark:bg-gray-600'}`} />
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-3">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Registered</div>
+          <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{stats === null ? '…' : total}</div>
+        </div>
+      </div>
+
+      {names.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+          <span className="font-semibold text-gray-700 dark:text-gray-200">Online:</span>{' '}
+          {names.join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -678,8 +730,11 @@ export default function Admin() {
         {/* Match selector */}
         <MatchSelector onTeamsChange={setMatchTeams} />
 
-        {/* Bots control */}
-        <BotsControl />
+        {/* Bots + live player count — side by side on desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <BotsControl />
+          <UserStats />
+        </div>
 
         {/* Contract builder */}
         <div ref={builderRef} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">

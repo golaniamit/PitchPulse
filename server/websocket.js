@@ -2,12 +2,26 @@ const WebSocket = require('ws');
 
 let wss = null;
 
-function init(server) {
-  wss = new WebSocket.Server({ server });
+function init(server, sessionMiddleware) {
+  // noServer mode lets us run the session middleware on the upgrade request
+  // so ws.session.userId is available on each connection.
+  wss = new WebSocket.Server({ noServer: true });
+
+  server.on('upgrade', (req, socket, head) => {
+    const run = sessionMiddleware
+      ? (cb) => sessionMiddleware(req, {}, cb)
+      : (cb) => cb();
+    run(() => {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
+    });
+  });
 
   wss.on('connection', (ws, req) => {
     ws.isAlive = true;
     ws.subscribedContracts = new Set();
+    ws.userId = req.session?.userId || null;
 
     ws.on('pong', () => { ws.isAlive = true; });
 
@@ -65,4 +79,15 @@ function broadcastAll(msg) {
   });
 }
 
-module.exports = { init, broadcast, broadcastAll };
+// Unique userIds across currently-open sockets. A single user with several
+// tabs counts once.
+function getActiveUserIds() {
+  if (!wss) return [];
+  const ids = new Set();
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN && ws.userId) ids.add(ws.userId);
+  });
+  return Array.from(ids);
+}
+
+module.exports = { init, broadcast, broadcastAll, getActiveUserIds };

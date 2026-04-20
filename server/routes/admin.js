@@ -5,6 +5,7 @@ const { requireAdmin } = require('../middleware');
 const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval } = require('../engine/resolver');
 const { getIntSetting, setSetting } = require('../settings');
 const db = require('../db');
+const ws = require('../websocket');
 const router = express.Router();
 
 const ENV_PATH = path.resolve(__dirname, '../../.env');
@@ -199,6 +200,24 @@ router.post('/bots/intensity', requireAdmin, (req, res) => {
   setSetting('bots_intensity', level);
   console.log(`[admin] Bots intensity set to ${level}`);
   res.json({ ok: true, intensity: level });
+});
+
+// Player stats — total registered (non-bot) users and currently connected users.
+// "Active" = unique userIds across open WebSocket connections.
+router.get('/user-stats', requireAdmin, (req, res) => {
+  const totalUsers = db.prepare('SELECT COUNT(*) as c FROM users WHERE is_bot = 0').get().c;
+  const activeIds = ws.getActiveUserIds();
+  let activeUsers = 0;
+  let activeUsernames = [];
+  if (activeIds.length > 0) {
+    const placeholders = activeIds.map(() => '?').join(',');
+    const rows = db.prepare(
+      `SELECT id, username, display_name FROM users WHERE is_bot = 0 AND id IN (${placeholders})`
+    ).all(...activeIds);
+    activeUsers = rows.length;
+    activeUsernames = rows.map(r => r.display_name || r.username);
+  }
+  res.json({ totalUsers, activeUsers, activeUsernames });
 });
 
 // Force-verify a user by username (admin only — useful for testing)
