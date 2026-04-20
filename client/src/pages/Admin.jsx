@@ -620,8 +620,8 @@ export default function Admin() {
   const [selectedType, setSelectedType] = useState(null);
   const [fields, setFields] = useState({});
   const [resolveMode, setResolveMode] = useState('manual');
-  const [status, setStatus] = useState('active');
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState(null);  // non-null when editing a draft in place
   const [error, setError] = useState('');
   const [resolvingContract, setResolvingContract] = useState(null);
   const [adminTab, setAdminTab] = useState('all');       // filter for the "All contracts" list
@@ -644,28 +644,55 @@ export default function Admin() {
 
   const title = selectedType ? buildTitle(selectedType, fields) : '';
 
-  async function createContract() {
+  // Submits the builder. `publishStatus` is 'active' (Publish Now / Save & Publish)
+  // or 'draft' (Save as Draft / Save Changes). If editingId is set, PATCH the
+  // existing draft; otherwise POST a new contract.
+  async function submitContract(publishStatus) {
     if (!selectedType) return;
     setError(''); setCreating(true);
     const condition = selectedType !== 'manual' ? buildConditionJson(selectedType, fields) : null;
     const contractTitle = selectedType === 'manual' ? (fields.custom_title || 'Manual contract') : title;
+    const payload = { title: contractTitle, type: selectedType, condition_json: condition, resolve_mode: resolveMode, status: publishStatus };
     try {
-      const r = await fetch('/api/contracts', {
-        method: 'POST',
+      const url    = editingId ? `/api/contracts/${editingId}` : '/api/contracts';
+      const method = editingId ? 'PATCH' : 'POST';
+      const r = await fetch(url, {
+        method,
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: contractTitle, type: selectedType, condition_json: condition, resolve_mode: resolveMode, status }),
+        body: JSON.stringify(payload),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      setSelectedType(null);
-      setFields({});
+      resetBuilder();
       loadContracts();
     } catch (e) {
       setError(e.message);
     } finally {
       setCreating(false);
     }
+  }
+
+  function resetBuilder() {
+    setSelectedType(null);
+    setFields({});
+    setResolveMode('manual');
+    setEditingId(null);
+    setError('');
+  }
+
+  // Loads an existing draft into the builder for in-place editing.
+  function editContract(c) {
+    setEditingId(c.id);
+    setSelectedType(c.type);
+    setResolveMode(c.resolve_mode || 'manual');
+    let parsed = {};
+    try { parsed = c.condition_json ? JSON.parse(c.condition_json) : {}; } catch {}
+    const mapped = { ...parsed };
+    if (c.type === 'manual') mapped.custom_title = c.title;
+    setFields(mapped);
+    setError('');
+    builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function resolveContract(resolution) {
@@ -689,12 +716,12 @@ export default function Admin() {
     loadContracts();
   }
 
-  // "Duplicate" — pre-fills the contract builder from an existing contract's data,
-  // then scrolls the admin back to the builder so they can tweak and re-create.
+  // "Duplicate" — pre-fills the contract builder from an existing contract's data
+  // as a brand-new draft (not linked to the original), then scrolls back to the builder.
   function duplicateContract(c) {
+    setEditingId(null);
     setSelectedType(c.type);
     setResolveMode(c.resolve_mode || 'manual');
-    setStatus('draft');
     let parsed = {};
     try { parsed = c.condition_json ? JSON.parse(c.condition_json) : {}; } catch {}
     // Map the condition JSON back to form field names (same as buildConditionJson, reversed).
@@ -738,7 +765,19 @@ export default function Admin() {
 
         {/* Contract builder */}
         <div ref={builderRef} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
-          <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-4">Create Contract</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">
+              {editingId ? `Edit Contract #${editingId}` : 'Create Contract'}
+            </h2>
+            {editingId && (
+              <button
+                onClick={resetBuilder}
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 border border-gray-200 dark:border-gray-600 px-3 py-1 rounded-lg"
+              >
+                Cancel edit
+              </button>
+            )}
+          </div>
 
           <div className="grid grid-cols-3 gap-2 mb-4">
             {CONTRACT_TYPES.map(ct => (
@@ -748,7 +787,7 @@ export default function Admin() {
                 className={`rounded-xl border p-2.5 text-center transition-colors ${
                   selectedType === ct.id
                     ? 'border-navy-800 bg-navy-800 text-white'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700'
                 }`}
               >
                 <div className="text-xl mb-0.5">{ct.icon}</div>
@@ -760,21 +799,12 @@ export default function Admin() {
           {selectedType && (
             <div className="space-y-3">
               <ContractFields type={selectedType} fields={fields} onChange={fieldChange} teams={matchTeams} />
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 mb-1 block">Resolve mode</label>
-                  <select value={resolveMode} onChange={e => setResolveMode(e.target.value)} className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
-                    <option value="manual">Manual</option>
-                    <option value="auto">Auto (CricAPI)</option>
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 mb-1 block">Publish as</label>
-                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
-                    <option value="active">Active now</option>
-                    <option value="draft">Draft</option>
-                  </select>
-                </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Resolve mode</label>
+                <select value={resolveMode} onChange={e => setResolveMode(e.target.value)} className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
+                  <option value="manual">Manual</option>
+                  <option value="auto">Auto (CricAPI)</option>
+                </select>
               </div>
               {title && (
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 border border-dashed border-gray-200 dark:border-gray-600">
@@ -783,13 +813,22 @@ export default function Admin() {
                 </div>
               )}
               {error && <p className="text-red-600 text-sm">{error}</p>}
-              <button
-                onClick={createContract}
-                disabled={creating}
-                className="w-full bg-navy-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-navy-700 transition-colors disabled:opacity-50"
-              >
-                {creating ? 'Creating...' : 'Create Contract'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => submitContract('draft')}
+                  disabled={creating}
+                  className="flex-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  {creating ? '...' : (editingId ? 'Save Changes' : 'Save as Draft')}
+                </button>
+                <button
+                  onClick={() => submitContract('active')}
+                  disabled={creating}
+                  className="flex-1 bg-navy-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-navy-700 transition-colors disabled:opacity-50"
+                >
+                  {creating ? '...' : (editingId ? 'Save & Publish' : 'Publish Now')}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -838,7 +877,11 @@ export default function Admin() {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {c.status === 'draft' && (
-                      <button onClick={() => setContractStatus(c.id, 'active')} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">Activate</button>
+                      <>
+                        <button onClick={() => editContract(c)} className="text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 font-semibold">Edit</button>
+                        <button onClick={() => setContractStatus(c.id, 'active')} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">Make Live</button>
+                        <button onClick={() => setContractStatus(c.id, 'cancelled')} className="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+                      </>
                     )}
                     {c.status === 'active' && (
                       <button onClick={() => setContractStatus(c.id, 'draft')} className="text-xs bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg">Deactivate</button>

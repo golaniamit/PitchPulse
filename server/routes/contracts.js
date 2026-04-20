@@ -106,6 +106,49 @@ router.post('/', requireAdmin, (req, res) => {
   res.status(201).json({ contract: enrichContract(contract) });
 });
 
+// Edit a draft contract (admin only). Body fields are the same subset
+// as create — title, type, condition_json, resolve_mode — and the status
+// can optionally be flipped to 'active' in the same request (Save & Publish).
+// Refuses to edit anything that isn't a draft so trading isn't pulled out
+// from under users.
+router.patch('/:id', requireAdmin, (req, res) => {
+  const { title, type, condition_json, resolve_mode, status } = req.body;
+  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
+  if (!contract) return res.status(404).json({ error: 'Contract not found' });
+  if (contract.status !== 'draft') {
+    return res.status(400).json({ error: 'Only draft contracts can be edited' });
+  }
+
+  const validTypes = ['runs_over', 'wicket_over', 'team_total', 'batsman_milestone', 'boundary_over', 'manual'];
+  if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid contract type' });
+
+  const cleanTitle = stripTags(title || '').slice(0, 200);
+  if (!cleanTitle) return res.status(400).json({ error: 'Title required' });
+  const cleanedCondition = sanitizeCondition(condition_json);
+
+  const nextStatus = (status === 'active' || status === 'draft') ? status : 'draft';
+
+  db.prepare(`
+    UPDATE contracts
+       SET title = ?, type = ?, condition_json = ?, resolve_mode = ?, status = ?
+     WHERE id = ?
+  `).run(
+    cleanTitle,
+    type,
+    cleanedCondition ? JSON.stringify(cleanedCondition) : null,
+    resolve_mode || 'manual',
+    nextStatus,
+    req.params.id,
+  );
+
+  const updated = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(req.params.id);
+  // Only broadcast once the contract becomes visible to traders.
+  if (nextStatus === 'active') {
+    broadcast({ type: 'contract_created', contract: enrichContract(updated) });
+  }
+  res.json({ contract: enrichContract(updated) });
+});
+
 // Update contract status (admin only)
 router.patch('/:id/status', requireAdmin, (req, res) => {
   const { status } = req.body;
