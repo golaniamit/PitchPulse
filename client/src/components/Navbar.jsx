@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useTheme } from '../context/ThemeContext';
 import PitchPulseLogo from './PitchPulseLogo';
+import NotificationToggle from './NotificationToggle';
 
 function useLiveScore() {
   const [score, setScore] = useState(null);
@@ -114,9 +115,9 @@ export default function Navbar() {
         {/* Right: dark toggle + connection dot + balance + profile */}
         <div className="flex items-center gap-3">
 
-          {/* Dark mode toggle */}
+          {/* Dark mode toggle — sun/moon labels hidden on mobile to leave room for balance */}
           <div className="flex items-center gap-1.5">
-            <span className="text-white/50 text-xs">☀️</span>
+            <span className="hidden sm:inline text-white/50 text-xs">☀️</span>
             <button
               onClick={toggle}
               title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -124,7 +125,7 @@ export default function Navbar() {
             >
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${dark ? 'translate-x-4' : 'translate-x-0.5'}`} />
             </button>
-            <span className="text-white/50 text-xs">🌙</span>
+            <span className="hidden sm:inline text-white/50 text-xs">🌙</span>
           </div>
 
           {/* Connection dot */}
@@ -134,7 +135,7 @@ export default function Navbar() {
           />
 
           {/* Coin balance */}
-          <div data-tour="balance" className="bg-white/10 px-3 py-1 rounded-full text-white text-sm font-semibold">
+          <div data-tour="balance" className="bg-white/10 px-3 py-1 rounded-full text-white text-sm font-semibold whitespace-nowrap flex-shrink-0">
             🪙 {user?.balance?.toLocaleString()}
           </div>
 
@@ -145,12 +146,14 @@ export default function Navbar() {
               className="flex items-center gap-2 focus:outline-none group"
               title="Profile"
             >
-              {/* Avatar circle */}
+              {/* Avatar circle — shows the user's emoji if they have one, else deterministic initials */}
               <span
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ring-2 ring-white/20 group-hover:ring-white/50 transition-all"
-                style={{ background: bg }}
+                style={{ background: user?.avatar_emoji ? 'rgba(255,255,255,0.12)' : bg }}
               >
-                {initials(user)}
+                {user?.avatar_emoji
+                  ? <span className="text-base leading-none">{user.avatar_emoji}</span>
+                  : initials(user)}
               </span>
               {/* Chevron */}
               <svg
@@ -169,10 +172,10 @@ export default function Navbar() {
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-3">
                     <span
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                      style={{ background: bg }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
+                      style={{ background: user?.avatar_emoji ? '#f1f5f9' : bg }}
                     >
-                      {initials(user)}
+                      {user?.avatar_emoji ? user.avatar_emoji : initials(user)}
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
@@ -208,6 +211,13 @@ export default function Navbar() {
                   >
                     <span className="text-base">💬</span> Feedback
                   </Link>
+                  <Link
+                    to="/settings"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <span className="text-base">⚙️</span> Account settings
+                  </Link>
+                  <NotificationToggle />
 
                   {/* Dark mode toggle inside menu */}
                   <button

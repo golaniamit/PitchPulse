@@ -12,7 +12,10 @@ import Admin from './pages/Admin';
 import Feedback from './pages/Feedback';
 import Verify from './pages/Verify';
 import ResetPassword from './pages/ResetPassword';
+import Settings from './pages/Settings';
+import TradeHistory from './pages/TradeHistory';
 import OnboardingTour, { useTour } from './components/OnboardingTour';
+import ResolutionToast from './components/ResolutionToast';
 
 function AppShell() {
   const { user, loading } = useAuth();
@@ -37,6 +40,7 @@ function AppShell() {
     <SocketProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
         {show && <OnboardingTour onClose={closeTour} />}
+        <ResolutionToast />
         <Navbar />
         <Routes>
           <Route path="/" element={<Home openTour={openTour} tourActive={show} />} />
@@ -45,6 +49,8 @@ function AppShell() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/feedback" element={<Feedback />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/trades" element={<TradeHistory />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

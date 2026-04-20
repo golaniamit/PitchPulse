@@ -56,6 +56,18 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  // Re-pulls the current session user. Call after Settings saves to propagate
+  // the new display_name / avatar to the navbar.
+  async function refresh() {
+    try {
+      const r = await fetch('/api/auth/me', { credentials: 'include' });
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.user) setUser(d.user);
+      }
+    } catch { /* ignore */ }
+  }
+
   function updateBalance(newBalance) {
     setUser(u => u ? { ...u, balance: newBalance } : u);
   }
@@ -66,7 +78,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, resendVerification, logout, updateBalance, markTourSeen }}>
+    <AuthContext.Provider value={{ user, loading, login, register, resendVerification, logout, refresh, updateBalance, markTourSeen }}>
       {children}
     </AuthContext.Provider>
   );

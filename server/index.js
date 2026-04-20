@@ -17,6 +17,7 @@ const orderRoutes = require('./routes/orders');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const feedbackRoutes = require('./routes/feedback');
+const pushRoutes = require('./routes/push');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,6 +49,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/push', pushRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));

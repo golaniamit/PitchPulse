@@ -103,7 +103,15 @@ router.post('/login', async (req, res) => {
 
   req.session.userId = user.id;
   req.session.username = user.username;
-  res.json({ user: { id: user.id, username: user.username, display_name: user.display_name, balance: user.balance, is_admin: user.is_admin, tour_seen: user.tour_seen } });
+
+  // Capture a balance snapshot once per day so we can show P&L today on the leaderboard.
+  const today = new Date().toISOString().slice(0, 10);
+  if (user.snapshot_date !== today) {
+    db.prepare('UPDATE users SET balance_at_day_start = ?, snapshot_date = ? WHERE id = ?')
+      .run(user.balance, today, user.id);
+  }
+
+  res.json({ user: { id: user.id, username: user.username, display_name: user.display_name, balance: user.balance, is_admin: user.is_admin, tour_seen: user.tour_seen, avatar_emoji: user.avatar_emoji } });
 });
 
 // Forgot password — send reset email
@@ -153,9 +161,76 @@ router.post('/logout', (req, res) => {
 // Me (current session)
 router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
-  const user = db.prepare('SELECT id, username, display_name, balance, is_admin, tour_seen FROM users WHERE id = ?').get(req.session.userId);
+  const user = db.prepare('SELECT id, username, display_name, balance, is_admin, tour_seen, avatar_emoji FROM users WHERE id = ?').get(req.session.userId);
   if (!user) return res.status(401).json({ error: 'User not found' });
   res.json({ user });
+});
+
+// ---- Account settings ----
+// Curated emoji pool users can pick from. Matches the migration seed list.
+const AVATAR_POOL = ['🏏','🏆','🎯','🔥','⚡','🦁','🐘','🦅','🐯','🌟','💎','🚀','🦄','🐉','🦈','🦉','🐺','🐬','🦊','🐨'];
+
+// Update display name and/or avatar
+router.patch('/me', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  const { display_name, avatar_emoji } = req.body || {};
+  const updates = [];
+  const params = [];
+  if (typeof display_name === 'string') {
+    const name = display_name.trim().slice(0, 40);
+    updates.push('display_name = ?'); params.push(name || null);
+  }
+  if (typeof avatar_emoji === 'string' && avatar_emoji) {
+    if (!AVATAR_POOL.includes(avatar_emoji)) return res.status(400).json({ error: 'Pick an emoji from the provided set' });
+    updates.push('avatar_emoji = ?'); params.push(avatar_emoji);
+  }
+  if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+  params.push(req.session.userId);
+  db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+  const user = db.prepare('SELECT id, username, display_name, balance, is_admin, tour_seen, avatar_emoji FROM users WHERE id = ?').get(req.session.userId);
+  res.json({ user });
+});
+
+// Expose the emoji pool so the client can render a picker without duplicating the list
+router.get('/avatar-pool', (req, res) => {
+  res.json({ pool: AVATAR_POOL });
+});
+
+// Change password — requires current password
+router.post('/change-password', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  const { current, next } = req.body || {};
+  if (!current || !next) return res.status(400).json({ error: 'Current and new password required' });
+  if (next.length < 4) return res.status(400).json({ error: 'New password must be at least 4 characters' });
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  if (!user) return res.status(401).json({ error: 'User not found' });
+  const ok = await bcrypt.compare(current, user.password_hash);
+  if (!ok) return res.status(403).json({ error: 'Current password is incorrect' });
+  const hash = await bcrypt.hash(next, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.session.userId);
+  res.json({ ok: true });
+});
+
+// Delete account — requires typing the username as a safety guard.
+// Keeps bot/admin accounts safe by rejecting if the caller is a bot.
+router.delete('/me', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  const { confirm_username } = req.body || {};
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  if (!user) return res.status(401).json({ error: 'User not found' });
+  if (user.is_bot) return res.status(403).json({ error: 'Cannot delete a bot account' });
+  if (confirm_username !== user.username) return res.status(400).json({ error: 'Type your username exactly to confirm deletion' });
+
+  // Cascade delete: orders, positions, trades-referenced orders first.
+  // Trades rows reference orders (buyer/seller_order_id) but not users directly —
+  // leaving historical trades intact keeps global contract price history correct.
+  const id = req.session.userId;
+  db.prepare('DELETE FROM positions WHERE user_id = ?').run(id);
+  db.prepare('DELETE FROM orders    WHERE user_id = ?').run(id);
+  db.prepare('DELETE FROM feedback  WHERE user_id = ?').run(id);
+  db.prepare('DELETE FROM users     WHERE id = ?').run(id);
+
+  req.session.destroy(() => res.json({ ok: true }));
 });
 
 // Mark tour as completed for the current user
