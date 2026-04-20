@@ -24,7 +24,33 @@ const traderCountStmt = db.prepare(`
   WHERE u.is_bot = 0
 `);
 
+// Cached team lookup — teams barely change, read once and serve from memory.
+let _teamCache = null;
+function teamById(id) {
+  if (!id) return null;
+  if (!_teamCache) {
+    _teamCache = new Map();
+    for (const t of db.prepare('SELECT id, short_code, name, primary_colour, logo_path FROM teams').all()) {
+      _teamCache.set(t.id, t);
+    }
+  }
+  return _teamCache.get(id) || null;
+}
+function invalidateTeamCache() { _teamCache = null; }
+
+const playerByIdStmt = db.prepare(`
+  SELECT p.id, p.name, p.slug, p.role, p.headshot_path, p.team_id,
+         t.short_code as team_short, t.primary_colour as team_colour, t.logo_path as team_logo
+  FROM players p LEFT JOIN teams t ON t.id = p.team_id WHERE p.id = ?
+`);
+
 function enrichContract(c) {
+  // Attach team / player / opponent references for the new 3-slot card.
+  // Null-safe: old contracts (pre-migration) have no team_id and get `team: null`.
+  const team     = teamById(c.team_id);
+  const opponent = teamById(c.opponent_team_id);
+  const player   = c.player_id ? playerByIdStmt.get(c.player_id) : null;
+
   return {
     ...c,
     best_yes_bid: bestYesBidStmt.get(c.id)?.best ?? null,
@@ -32,6 +58,7 @@ function enrichContract(c) {
     has_trades:   hasTradesStmt.get(c.id).cnt > 0,
     volume:       volumeStmt.get(c.id).vol,
     trader_count: traderCountStmt.get(c.id, c.id).n,
+    team, opponent, player,
   };
 }
 
@@ -64,13 +91,46 @@ router.get('/:id', requireAuth, (req, res) => {
   res.json({ contract: enrichContract(contract) });
 });
 
+// Valid contract types — original 6 + earlier 3 new + the 12 added with the
+// 5-phase structure. Kept all old type names for backward compatibility with
+// existing contracts and to avoid migrations.
+const VALID_TYPES = [
+  // original
+  'runs_over', 'wicket_over', 'team_total', 'batsman_milestone', 'boundary_over', 'manual',
+  // earlier additions
+  'toss_winner', 'match_winner', 'player_match_stat',
+  // by_over additions
+  'team_wickets_by_over', 'bowler_wickets_by_over',
+  // powerplay
+  'runs_powerplay', 'wickets_powerplay', 'boundaries_powerplay',
+  // death overs
+  'runs_death', 'wickets_death', 'boundaries_death',
+  // match additions
+  'innings_score',
+  // per-phase custom
+  'custom_over', 'custom_by_over', 'custom_powerplay', 'custom_death', 'custom_match',
+];
+const VALID_PHASES  = ['over', 'by_over', 'powerplay', 'death', 'toss', 'match'];
+const VALID_SUBJECTS = ['team', 'player', 'matchup', 'match_generic'];
+
+// Validate an FK without blowing up if the id is null/undefined.
+function validFK(table, id) {
+  if (id == null) return true;
+  return !!db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id);
+}
+
 // Create contract (admin only)
 router.post('/', requireAdmin, (req, res) => {
-  const { title, type, condition_json, match_id, over_number, resolve_mode, status } = req.body;
+  const { title, type, condition_json, match_id, over_number, resolve_mode, status,
+          phase, subject_kind, team_id, opponent_team_id, player_id, innings_number } = req.body;
   if (!title || !type) return res.status(400).json({ error: 'Title and type required' });
 
-  const validTypes = ['runs_over', 'wicket_over', 'team_total', 'batsman_milestone', 'boundary_over', 'manual'];
-  if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid contract type' });
+  if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid contract type' });
+  if (phase && !VALID_PHASES.includes(phase)) return res.status(400).json({ error: 'Invalid phase' });
+  if (subject_kind && !VALID_SUBJECTS.includes(subject_kind)) return res.status(400).json({ error: 'Invalid subject_kind' });
+  if (!validFK('teams', team_id)) return res.status(400).json({ error: 'Unknown team_id' });
+  if (!validFK('teams', opponent_team_id)) return res.status(400).json({ error: 'Unknown opponent_team_id' });
+  if (!validFK('players', player_id)) return res.status(400).json({ error: 'Unknown player_id' });
 
   // Strip any HTML out of title + condition_json free-text fields (manual
   // question, batsman name, etc.) so stored content is always safe to render.
@@ -78,9 +138,12 @@ router.post('/', requireAdmin, (req, res) => {
   if (!cleanTitle) return res.status(400).json({ error: 'Title required' });
   const cleanedCondition = sanitizeCondition(condition_json);
 
+  const inningsNum = (innings_number === 1 || innings_number === 2) ? innings_number : null;
+
   const stmt = db.prepare(`
-    INSERT INTO contracts (title, type, condition_json, match_id, over_number, resolve_mode, status, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO contracts (title, type, condition_json, match_id, over_number, resolve_mode, status,
+                           phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     cleanTitle,
@@ -90,6 +153,12 @@ router.post('/', requireAdmin, (req, res) => {
     over_number || null,
     resolve_mode || 'manual',
     status || 'draft',
+    phase || null,
+    subject_kind || null,
+    team_id || null,
+    opponent_team_id || null,
+    player_id || null,
+    inningsNum,
     req.session.userId
   );
 
@@ -112,15 +181,20 @@ router.post('/', requireAdmin, (req, res) => {
 // Refuses to edit anything that isn't a draft so trading isn't pulled out
 // from under users.
 router.patch('/:id', requireAdmin, (req, res) => {
-  const { title, type, condition_json, resolve_mode, status } = req.body;
+  const { title, type, condition_json, resolve_mode, status,
+          phase, subject_kind, team_id, opponent_team_id, player_id, innings_number } = req.body;
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
   if (contract.status !== 'draft') {
     return res.status(400).json({ error: 'Only draft contracts can be edited' });
   }
 
-  const validTypes = ['runs_over', 'wicket_over', 'team_total', 'batsman_milestone', 'boundary_over', 'manual'];
-  if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid contract type' });
+  if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid contract type' });
+  if (phase && !VALID_PHASES.includes(phase)) return res.status(400).json({ error: 'Invalid phase' });
+  if (subject_kind && !VALID_SUBJECTS.includes(subject_kind)) return res.status(400).json({ error: 'Invalid subject_kind' });
+  if (!validFK('teams', team_id)) return res.status(400).json({ error: 'Unknown team_id' });
+  if (!validFK('teams', opponent_team_id)) return res.status(400).json({ error: 'Unknown opponent_team_id' });
+  if (!validFK('players', player_id)) return res.status(400).json({ error: 'Unknown player_id' });
 
   const cleanTitle = stripTags(title || '').slice(0, 200);
   if (!cleanTitle) return res.status(400).json({ error: 'Title required' });
@@ -128,9 +202,12 @@ router.patch('/:id', requireAdmin, (req, res) => {
 
   const nextStatus = (status === 'active' || status === 'draft') ? status : 'draft';
 
+  const inningsNum = (innings_number === 1 || innings_number === 2) ? innings_number : null;
+
   db.prepare(`
     UPDATE contracts
-       SET title = ?, type = ?, condition_json = ?, resolve_mode = ?, status = ?
+       SET title = ?, type = ?, condition_json = ?, resolve_mode = ?, status = ?,
+           phase = ?, subject_kind = ?, team_id = ?, opponent_team_id = ?, player_id = ?, innings_number = ?
      WHERE id = ?
   `).run(
     cleanTitle,
@@ -138,6 +215,12 @@ router.patch('/:id', requireAdmin, (req, res) => {
     cleanedCondition ? JSON.stringify(cleanedCondition) : null,
     resolve_mode || 'manual',
     nextStatus,
+    phase || null,
+    subject_kind || null,
+    team_id || null,
+    opponent_team_id || null,
+    player_id || null,
+    inningsNum,
     req.params.id,
   );
 

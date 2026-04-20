@@ -1,128 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ContractBuilder from '../components/ContractBuilder';
 
-const CONTRACT_TYPES = [
-  { id: 'runs_over', label: 'Runs in over', icon: '🏃' },
-  { id: 'wicket_over', label: 'Wicket in over', icon: '🎯' },
-  { id: 'team_total', label: 'Team total by over', icon: '📊' },
-  { id: 'batsman_milestone', label: 'Batsman milestone', icon: '🦁' },
-  { id: 'boundary_over', label: 'Six / Four in over', icon: '💥' },
-  { id: 'manual', label: 'Custom / Manual', icon: '✍️' },
-];
-
-function buildConditionJson(type, fields) {
-  if (type === 'runs_over') return { type, team: fields.team, over: +fields.over, operator: fields.operator, threshold: +fields.threshold };
-  if (type === 'wicket_over') return { type, batting_team: fields.team, over: +fields.over, min_wickets: +fields.min_wickets };
-  if (type === 'team_total') return { type, team: fields.team, by_over: +fields.over, operator: fields.operator, threshold: +fields.threshold };
-  if (type === 'batsman_milestone') return { type, batsman: fields.batsman, milestone: +fields.milestone, by_over: +fields.over };
-  if (type === 'boundary_over') return { type, team: fields.team, over: +fields.over, boundary_type: fields.boundary_type };
-  return { type: 'manual' };
-}
-
-function buildTitle(type, fields) {
-  if (type === 'runs_over') return `Will ${fields.team || '...'} score ${fields.operator || '>='} ${fields.threshold || 'N'} runs in over ${fields.over || 'N'}?`;
-  if (type === 'wicket_over') return `Will ${fields.team || '...'} lose ${fields.min_wickets || 1}+ wicket(s) in over ${fields.over || 'N'}?`;
-  if (type === 'team_total') return `Will ${fields.team || '...'} reach ${fields.threshold || 'N'} runs by over ${fields.over || 'N'}?`;
-  if (type === 'batsman_milestone') return `Will ${fields.batsman || '...'} score ${fields.milestone || 'N'}+ runs by over ${fields.over || 'N'}?`;
-  if (type === 'boundary_over') return `Will ${fields.team || '...'} hit a ${fields.boundary_type || 'six'} in over ${fields.over || 'N'}?`;
-  return fields.custom_title || '...';
-}
-
-// Field wrapper with an uppercase label. MUST live at module scope —
-// if defined inside ContractFields it gets a fresh function reference on
-// every keystroke, which causes React to remount the child <input> and
-// the cursor loses focus after every character typed.
-function Labeled({ label, children }) {
-  return (
-    <label className="block">
-      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function ContractFields({ type, fields, onChange, teams }) {
-  const inp = (name, placeholder, type2 = 'text') => (
-    <input
-      type={type2}
-      placeholder={placeholder}
-      value={fields[name] || ''}
-      onChange={e => onChange(name, e.target.value)}
-      className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-navy-800"
-    />
-  );
-  const sel = (name, opts) => (
-    <select
-      value={fields[name] || ''}
-      onChange={e => onChange(name, e.target.value)}
-      className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-navy-800"
-    >
-      <option value="">Select…</option>
-      {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-  const teamPicker = (name, placeholder) => teams?.length >= 2
-    ? sel(name, teams.map(t => ({ value: t, label: t })))
-    : inp(name, placeholder);
-
-  const OP_OPTIONS = [
-    { value: '>=', label: '≥ (at least)' },
-    { value: '>',  label: '> (more than)' },
-    { value: '<=', label: '≤ (at most)'   },
-  ];
-
-  if (type === 'runs_over') return (
-    <div className="grid grid-cols-2 gap-3">
-      <Labeled label="Team">{teamPicker('team', 'e.g. CSK')}</Labeled>
-      <Labeled label="Over number">{inp('over', '1–20', 'number')}</Labeled>
-      <Labeled label="Operator">{sel('operator', OP_OPTIONS)}</Labeled>
-      <Labeled label="Runs threshold">{inp('threshold', 'e.g. 10', 'number')}</Labeled>
-    </div>
-  );
-  if (type === 'wicket_over') return (
-    <div className="grid grid-cols-2 gap-3">
-      <Labeled label="Batting team">{teamPicker('team', 'e.g. CSK')}</Labeled>
-      <Labeled label="Over number">{inp('over', '1–20', 'number')}</Labeled>
-      <Labeled label="Minimum wickets">{inp('min_wickets', 'e.g. 1', 'number')}</Labeled>
-    </div>
-  );
-  if (type === 'team_total') return (
-    <div className="grid grid-cols-2 gap-3">
-      <Labeled label="Team">{teamPicker('team', 'e.g. CSK')}</Labeled>
-      <Labeled label="By end of over">{inp('over', '1–20', 'number')}</Labeled>
-      <Labeled label="Operator">{sel('operator', OP_OPTIONS)}</Labeled>
-      <Labeled label="Run target">{inp('threshold', 'e.g. 150', 'number')}</Labeled>
-    </div>
-  );
-  if (type === 'batsman_milestone') return (
-    <div className="grid grid-cols-2 gap-3">
-      <Labeled label="Batsman name">{inp('batsman', 'e.g. MS Dhoni')}</Labeled>
-      <Labeled label="Milestone (runs)">{inp('milestone', 'e.g. 50', 'number')}</Labeled>
-      <Labeled label="By end of over">{inp('over', '1–20', 'number')}</Labeled>
-    </div>
-  );
-  if (type === 'boundary_over') return (
-    <div className="grid grid-cols-2 gap-3">
-      <Labeled label="Team">{teamPicker('team', 'e.g. CSK')}</Labeled>
-      <Labeled label="Over number">{inp('over', '1–20', 'number')}</Labeled>
-      <Labeled label="Boundary type">{sel('boundary_type', [{value:'six',label:'Six'},{value:'four',label:'Four'}])}</Labeled>
-    </div>
-  );
-  if (type === 'manual') return (
-    <Labeled label="Custom question">
-      <input
-        placeholder="e.g. Will MS Dhoni come out to bat today?"
-        value={fields.custom_title || ''}
-        onChange={e => onChange('custom_title', e.target.value)}
-        className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-navy-800"
-      />
-    </Labeled>
-  );
-  return null;
-}
 
 // Two-step resolve modal
 // Step 1: confirm intent  Step 2: pick YES or NO
@@ -617,12 +497,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const [contracts, setContracts] = useState([]);
   const [matchTeams, setMatchTeams] = useState([]);
-  const [selectedType, setSelectedType] = useState(null);
-  const [fields, setFields] = useState({});
-  const [resolveMode, setResolveMode] = useState('manual');
-  const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState(null);  // non-null when editing a draft in place
-  const [error, setError] = useState('');
+  const [editingContract, setEditingContract] = useState(null);   // contract object (or {...c, id: undefined} for duplicate)
   const [resolvingContract, setResolvingContract] = useState(null);
   const [adminTab, setAdminTab] = useState('all');       // filter for the "All contracts" list
   const builderRef = useRef(null);                        // lets "Duplicate" scroll back to the builder
@@ -638,60 +513,12 @@ export default function Admin() {
     setContracts(d.contracts || []);
   }
 
-  function fieldChange(name, value) {
-    setFields(f => ({ ...f, [name]: value }));
-  }
-
-  const title = selectedType ? buildTitle(selectedType, fields) : '';
-
-  // Submits the builder. `publishStatus` is 'active' (Publish Now / Save & Publish)
-  // or 'draft' (Save as Draft / Save Changes). If editingId is set, PATCH the
-  // existing draft; otherwise POST a new contract.
-  async function submitContract(publishStatus) {
-    if (!selectedType) return;
-    setError(''); setCreating(true);
-    const condition = selectedType !== 'manual' ? buildConditionJson(selectedType, fields) : null;
-    const contractTitle = selectedType === 'manual' ? (fields.custom_title || 'Manual contract') : title;
-    const payload = { title: contractTitle, type: selectedType, condition_json: condition, resolve_mode: resolveMode, status: publishStatus };
-    try {
-      const url    = editingId ? `/api/contracts/${editingId}` : '/api/contracts';
-      const method = editingId ? 'PATCH' : 'POST';
-      const r = await fetch(url, {
-        method,
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      resetBuilder();
-      loadContracts();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setCreating(false);
-    }
-  }
-
   function resetBuilder() {
-    setSelectedType(null);
-    setFields({});
-    setResolveMode('manual');
-    setEditingId(null);
-    setError('');
+    setEditingContract(null);
   }
 
-  // Loads an existing draft into the builder for in-place editing.
   function editContract(c) {
-    setEditingId(c.id);
-    setSelectedType(c.type);
-    setResolveMode(c.resolve_mode || 'manual');
-    let parsed = {};
-    try { parsed = c.condition_json ? JSON.parse(c.condition_json) : {}; } catch {}
-    const mapped = { ...parsed };
-    if (c.type === 'manual') mapped.custom_title = c.title;
-    setFields(mapped);
-    setError('');
+    setEditingContract(c);
     builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -719,15 +546,9 @@ export default function Admin() {
   // "Duplicate" — pre-fills the contract builder from an existing contract's data
   // as a brand-new draft (not linked to the original), then scrolls back to the builder.
   function duplicateContract(c) {
-    setEditingId(null);
-    setSelectedType(c.type);
-    setResolveMode(c.resolve_mode || 'manual');
-    let parsed = {};
-    try { parsed = c.condition_json ? JSON.parse(c.condition_json) : {}; } catch {}
-    // Map the condition JSON back to form field names (same as buildConditionJson, reversed).
-    const mapped = { ...parsed };
-    if (c.type === 'manual') mapped.custom_title = c.title;
-    setFields(mapped);
+    // Strip the id so the builder POSTs a new contract on save.
+    const { id, ...rest } = c;
+    setEditingContract({ ...rest, id: undefined });
     builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -763,74 +584,13 @@ export default function Admin() {
           <UserStats />
         </div>
 
-        {/* Contract builder */}
-        <div ref={builderRef} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-gray-900 dark:text-gray-100">
-              {editingId ? `Edit Contract #${editingId}` : 'Create Contract'}
-            </h2>
-            {editingId && (
-              <button
-                onClick={resetBuilder}
-                className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 border border-gray-200 dark:border-gray-600 px-3 py-1 rounded-lg"
-              >
-                Cancel edit
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {CONTRACT_TYPES.map(ct => (
-              <button
-                key={ct.id}
-                onClick={() => { setSelectedType(ct.id); setFields({}); }}
-                className={`rounded-xl border p-2.5 text-center transition-colors ${
-                  selectedType === ct.id
-                    ? 'border-navy-800 bg-navy-800 text-white'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700'
-                }`}
-              >
-                <div className="text-xl mb-0.5">{ct.icon}</div>
-                <div className="text-xs font-medium leading-tight">{ct.label}</div>
-              </button>
-            ))}
-          </div>
-
-          {selectedType && (
-            <div className="space-y-3">
-              <ContractFields type={selectedType} fields={fields} onChange={fieldChange} teams={matchTeams} />
-              <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Resolve mode</label>
-                <select value={resolveMode} onChange={e => setResolveMode(e.target.value)} className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-100">
-                  <option value="manual">Manual</option>
-                  <option value="auto">Auto (CricAPI)</option>
-                </select>
-              </div>
-              {title && (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 border border-dashed border-gray-200 dark:border-gray-600">
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-1 uppercase tracking-wide">Preview</p>
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{title}</p>
-                </div>
-              )}
-              {error && <p className="text-red-600 text-sm">{error}</p>}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => submitContract('draft')}
-                  disabled={creating}
-                  className="flex-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-                >
-                  {creating ? '...' : (editingId ? 'Save Changes' : 'Save as Draft')}
-                </button>
-                <button
-                  onClick={() => submitContract('active')}
-                  disabled={creating}
-                  className="flex-1 bg-navy-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-navy-700 transition-colors disabled:opacity-50"
-                >
-                  {creating ? '...' : (editingId ? 'Save & Publish' : 'Publish Now')}
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Contract builder — 3-slot tile-based form */}
+        <div ref={builderRef}>
+          <ContractBuilder
+            editing={editingContract}
+            onSaved={() => { resetBuilder(); loadContracts(); }}
+            onCancelEdit={resetBuilder}
+          />
         </div>
 
         {/* All contracts dashboard */}

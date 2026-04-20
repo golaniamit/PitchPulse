@@ -2,19 +2,222 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const STATUS_BADGE = {
-  active: 'bg-green-100 text-green-800',
-  draft: 'bg-gray-100 text-gray-600',
-  resolved: 'bg-blue-100 text-blue-800',
-  cancelled: 'bg-red-100 text-red-800',
-};
-
 const STAKES = [50, 100, 200, 500];
+
+// Human labels per contract type — shown in the meta row above the question.
+export const TYPE_META = {
+  // original
+  runs_over:               'Runs in over',
+  wicket_over:             'Wickets in over',
+  team_total:              'Team total',
+  batsman_milestone:       'Batsman milestone',
+  boundary_over:           'Boundaries in over',
+  manual:                  'Custom',
+  // earlier additions
+  toss_winner:             'Toss winner',
+  match_winner:            'Match winner',
+  player_match_stat:       'Player · match',
+  // by_over
+  team_wickets_by_over:    'Team wickets',
+  bowler_wickets_by_over:  'Bowler wickets',
+  // powerplay
+  runs_powerplay:          'Runs · powerplay',
+  wickets_powerplay:       'Wickets · powerplay',
+  boundaries_powerplay:    'Boundaries · powerplay',
+  // death
+  runs_death:              'Runs · death overs',
+  wickets_death:           'Wickets · death overs',
+  boundaries_death:        'Boundaries · death overs',
+  // match
+  innings_score:           'Innings score',
+  // per-phase custom
+  custom_over:             'Custom · over',
+  custom_by_over:          'Custom · by over',
+  custom_powerplay:        'Custom · powerplay',
+  custom_death:            'Custom · death overs',
+  custom_match:            'Custom · match',
+};
 
 function payout(stake, price) {
   // price is cost per contract (1–99). Win = 100 per contract.
   return Math.round((stake / price) * 100);
 }
+
+// ── Slot sub-components ─────────────────────────────────────────────
+// LEFT slot: the "who" — team crest / player headshot+tick / vs-layout / generic bubble.
+
+function TeamLogo({ team }) {
+  if (!team) return null;
+  return (
+    <div className="w-14 h-14 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center p-1.5 shrink-0">
+      <img src={team.logo_path} alt={team.short_code} className="max-w-full max-h-full object-contain" />
+    </div>
+  );
+}
+
+function PlayerInitialsAvatar({ name, size = 56, bg = '#1a1a2e' }) {
+  const initials = String(name || '?').split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 3).join('').toUpperCase();
+  return (
+    <div
+      className="rounded-full flex items-center justify-center font-extrabold text-white"
+      style={{ width: size, height: size, background: bg, fontSize: Math.round(size * 0.32) }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function PlayerHead({ player }) {
+  const ring = player.team_colour || '#1a1a2e';
+  const head = player.headshot_path ? (
+    <img
+      src={player.headshot_path}
+      alt={player.name}
+      className="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-gray-800"
+      style={{ objectPosition: 'center top' }}
+    />
+  ) : (
+    <PlayerInitialsAvatar name={player.name} size={56} bg={ring} />
+  );
+  return (
+    <div className="relative shrink-0">
+      <div className="rounded-full p-[2px]" style={{ background: ring }}>{head}</div>
+      {player.team_logo && (
+        <div className="absolute -bottom-1 -right-1 w-[22px] h-[22px] rounded-md bg-white dark:bg-gray-800 border-2 border-white dark:border-gray-800 shadow flex items-center justify-center p-0.5">
+          <img src={player.team_logo} alt={player.team_short} className="max-w-full max-h-full object-contain" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VsLayout({ a, b }) {
+  return (
+    <div className="relative shrink-0" style={{ width: 56, height: 56 }}>
+      <div className="absolute top-0 left-0 w-[34px] h-[34px] rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center p-0.5">
+        <img src={a.logo_path} alt={a.short_code} className="max-w-full max-h-full object-contain" />
+      </div>
+      <div className="absolute bottom-0 right-0 w-[34px] h-[34px] rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center p-0.5">
+        <img src={b.logo_path} alt={b.short_code} className="max-w-full max-h-full object-contain" />
+      </div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-[9px] font-black text-navy-900 dark:text-gray-100 flex items-center justify-center z-10">vs</div>
+    </div>
+  );
+}
+
+function GenericBubble() {
+  return (
+    <div className="w-14 h-14 rounded-full bg-navy-800 text-white flex items-center justify-center text-xl font-black shrink-0">?</div>
+  );
+}
+
+export function SubjectSlot({ contract }) {
+  const { subject_kind, team, opponent, player } = contract;
+
+  if (subject_kind === 'player' && player)   return <PlayerHead player={player} />;
+  if (subject_kind === 'matchup'  && team && opponent) return <VsLayout a={team} b={opponent} />;
+  if (subject_kind === 'match_generic') {
+    if (team && opponent) return <VsLayout a={team} b={opponent} />;
+    if (team)             return <TeamLogo team={team} />;
+    return <GenericBubble />;
+  }
+  if (subject_kind === 'team' && team) return <TeamLogo team={team} />;
+
+  // Fallbacks for contracts missing proper subject data
+  if (player) return <PlayerHead player={player} />;
+  if (team)   return <TeamLogo team={team} />;
+  return <GenericBubble />;
+}
+
+// ── RIGHT slot: OVER / BY OV / TOSS / MATCH / CUSTOM context badge ─
+const CoinSvg = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/>
+  </svg>
+);
+const CalSvg = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+  </svg>
+);
+
+export function ContextBadge({ contract }) {
+  const { phase, over_number, innings_number } = contract;
+
+  // Numeric over badges. Number falls back to "—" so the live preview shows
+  // a real OVER badge while admin is still typing the number.
+  if (phase === 'over') {
+    return (
+      <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ background: '#1a1a2e' }}>
+        <span className="text-[9px] tracking-[0.12em] font-bold text-gray-400 leading-none">OVER</span>
+        <span className="text-[22px] font-black text-white font-mono leading-none mt-1">{over_number || '—'}</span>
+      </div>
+    );
+  }
+  if (phase === 'by_over') {
+    return (
+      <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ background: '#1a1a2e' }}>
+        <span className="text-[9px] tracking-[0.12em] font-bold leading-none" style={{ color: '#facc15' }}>BY OV</span>
+        <span className="text-[22px] font-black text-white font-mono leading-none mt-1">{over_number || '—'}</span>
+      </div>
+    );
+  }
+  // Powerplay & Death — fixed over windows, no number, distinct colour.
+  if (phase === 'powerplay') {
+    return (
+      <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ background: '#1a1a2e' }}>
+        <span className="text-[8px] tracking-[0.12em] font-bold leading-none" style={{ color: '#fbbf24' }}>POWER</span>
+        <span className="text-[15px] font-black text-white leading-none mt-1">PLAY</span>
+        <span className="text-[7px] text-gray-400 leading-none mt-0.5">OV 1–6</span>
+      </div>
+    );
+  }
+  if (phase === 'death') {
+    return (
+      <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ background: '#1a1a2e' }}>
+        <span className="text-[8px] tracking-[0.12em] font-bold leading-none" style={{ color: '#ef5350' }}>DEATH</span>
+        <span className="text-[15px] font-black text-white leading-none mt-1">OVERS</span>
+        <span className="text-[7px] text-gray-400 leading-none mt-0.5">OV 16–20</span>
+      </div>
+    );
+  }
+  // Toss kept for back-compat with any old contracts created under the
+  // dropped Toss phase. New flow puts toss bets under Match.
+  if (phase === 'toss') {
+    return (
+      <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white shrink-0" style={{ background: '#0f3460' }}>
+        <span style={{ color: '#fbbf24' }}><CoinSvg /></span>
+        <span className="text-[11px] font-extrabold tracking-wide mt-1">TOSS</span>
+      </div>
+    );
+  }
+  // Match phase: split by innings_number into MATCH / 1ST INN / 2ND INN.
+  if (phase === 'match') {
+    if (innings_number === 1 || innings_number === 2) {
+      return (
+        <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ background: '#1a1a2e' }}>
+          <span className="text-[9px] tracking-[0.12em] font-bold text-gray-400 leading-none">INNINGS</span>
+          <span className="text-[22px] font-black text-white font-mono leading-none mt-1">{innings_number}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white shrink-0" style={{ background: '#16213e' }}>
+        <CalSvg />
+        <span className="text-[11px] font-extrabold tracking-wide mt-1">MATCH</span>
+      </div>
+    );
+  }
+  // Fallback for unclassified contracts (shouldn't happen post-backfill)
+  return (
+    <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white shrink-0" style={{ background: '#4b5563' }}>
+      <span className="text-[9px] tracking-wide font-bold" style={{ color: '#d1d5db' }}>CUSTOM</span>
+      <span className="text-[20px] font-black leading-none mt-1">?</span>
+    </div>
+  );
+}
+
+// ── The card ───────────────────────────────────────────────────────
 
 export default function ContractCard({ contract, tourTarget }) {
   const navigate = useNavigate();
@@ -24,29 +227,22 @@ export default function ContractCard({ contract, tourTarget }) {
   const [flash, setFlash] = useState(null);
 
   // --- Order book state ---
-  const bestYes = contract.best_yes_bid ?? null; // highest YES bid in book
-  const bestNo  = contract.best_no_bid  ?? null; // highest NO bid in book
+  const bestYes = contract.best_yes_bid ?? null;
+  const bestNo  = contract.best_no_bid  ?? null;
   const hasTrades = contract.has_trades ?? false;
 
   const hasYesSide = bestYes !== null;
   const hasNoSide  = bestNo  !== null;
 
-  // Which "state" is this active contract in?
-  // A: no offers either side
-  // B: offers on one side only
-  // CD: offers on both sides (or trades have happened)
   const stateA  = !hasYesSide && !hasNoSide;
   const stateB  = (hasYesSide && !hasNoSide) || (!hasYesSide && hasNoSide);
   const stateCD = hasYesSide && hasNoSide;
 
-  // Prices to use for quick-bet execution:
-  // To bet YES and match a NO offer: price = 100 - bestNo
-  // To bet NO and match a YES offer: price = 100 - bestYes
   const yesBetPrice = hasNoSide  ? (100 - bestNo)  : 50;
   const noBetPrice  = hasYesSide ? (100 - bestYes) : 50;
 
-  // Sentiment bar — only show when real trades have happened
   const sentimentPrice = contract.current_price;
+  const typeLabel = TYPE_META[contract.type] || contract.type?.replace(/_/g, ' ');
 
   async function placeBet(side, price, e) {
     e.stopPropagation();
@@ -79,32 +275,41 @@ export default function ContractCard({ contract, tourTarget }) {
       className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md transition-shadow"
       onClick={() => navigate(`/contract/${contract.id}`)}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 pr-2">
-          <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">{contract.title}</p>
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
-            <span className="uppercase tracking-wide">{contract.type.replace(/_/g, ' ')}</span>
+      {/* ── NEW 3-SLOT HEADER ───────────────────────────────────── */}
+      <div className="flex items-start gap-3 mb-3">
+        <SubjectSlot contract={contract} />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">
+              {typeLabel}
+            </span>
             {(contract.volume > 0 || contract.trader_count > 0) && (
               <>
-                <span className="text-gray-300 dark:text-gray-600">·</span>
+                <span className="text-gray-300 dark:text-gray-600 text-xs">·</span>
                 {contract.volume > 0 && (
-                  <span className="whitespace-nowrap">🪙 {contract.volume.toLocaleString()} traded</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">🪙 {contract.volume.toLocaleString()}</span>
                 )}
                 {contract.trader_count > 0 && (
-                  <>
-                    <span className="text-gray-300 dark:text-gray-600">·</span>
-                    <span className="whitespace-nowrap">{contract.trader_count} trader{contract.trader_count === 1 ? '' : 's'}</span>
-                  </>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{contract.trader_count} trader{contract.trader_count === 1 ? '' : 's'}</span>
                 )}
               </>
             )}
+            {contract.status === 'draft' && (
+              <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">Draft</span>
+            )}
+            {contract.status === 'resolved' && (
+              <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                contract.resolution === 'YES' ? 'bg-yes-bg text-yes' : 'bg-no-bg text-no'
+              }`}>Settled {contract.resolution}</span>
+            )}
           </div>
+          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 leading-snug">
+            {contract.title}
+          </p>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_BADGE[contract.status] || 'bg-gray-100 text-gray-600'}`}>
-          {contract.status}
-          {contract.status === 'resolved' && contract.resolution ? ` · ${contract.resolution}` : ''}
-        </span>
+
+        <ContextBadge contract={contract} />
       </div>
 
       {/* ── DRAFT ── */}
@@ -140,7 +345,6 @@ export default function ContractCard({ contract, tourTarget }) {
               </div>
             </div>
           ) : stateCD ? (
-            /* Both sides have bids but no trade yet — show the spread */
             <div data-tour={tourTarget ? 'price-bar' : undefined} className="mb-4">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-medium text-gray-400 dark:text-gray-500">Market forming</span>
@@ -208,7 +412,6 @@ export default function ContractCard({ contract, tourTarget }) {
                 ))}
               </div>
               <div className="flex gap-2">
-                {/* YES side */}
                 {hasNoSide ? (
                   <button
                     onClick={(e) => placeBet('YES', yesBetPrice, e)}
@@ -227,7 +430,6 @@ export default function ContractCard({ contract, tourTarget }) {
                     <div className="text-xs text-yes/70 dark:text-yes mt-0.5">set your price →</div>
                   </button>
                 )}
-                {/* NO side */}
                 {hasYesSide ? (
                   <button
                     onClick={(e) => placeBet('NO', noBetPrice, e)}

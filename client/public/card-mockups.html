@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Contract Card — Ideation Mockups v4 (slots swapped)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: { 900:'#0b1020', 800:'#1a1a2e', 700:'#16213e', 600:'#0f3460' },
+          yes:  { DEFAULT:'#2e7d32', light:'#4caf50', bg:'#e8f5e9' },
+          no:   { DEFAULT:'#c62828', light:'#ef5350', bg:'#ffebee' },
+        },
+        fontFamily: { mono: ['ui-monospace','SFMono-Regular','Menlo','monospace'] },
+      },
+    },
+  };
+</script>
+<style>
+  body { background:#f6f7fb; }
+  .label { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; }
+
+  /* Context badge — now on the RIGHT */
+  .ctx {
+    width:60px; height:60px; border-radius:14px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:#1a1a2e; color:#fff;
+    padding:4px;
+  }
+  .ctx .l { font-size:9px; letter-spacing:0.12em; color:#9ca3af; line-height:1.1; font-weight:700; }
+  .ctx .n { font-size:24px; font-weight:900; line-height:1; font-family:ui-monospace,monospace; margin-top:2px; }
+  .ctx .t { font-size:13px; font-weight:800; letter-spacing:0.04em; line-height:1.05; margin-top:2px; }
+  .ctx.by .l { color:#facc15; }
+  .ctx.toss { background:#0f3460; }
+  .ctx.toss .l { color:#fbbf24; }
+  .ctx.match { background:#16213e; }
+  .ctx.custom { background:#4b5563; }
+  .ctx.custom .l { color:#d1d5db; }
+  .ctx svg { width:20px; height:20px; }
+
+  /* Subject anchor — now on the LEFT */
+  .who { width:60px; height:60px; display:flex; align-items:center; justify-content:center; }
+  .logo-tile {
+    width:56px; height:56px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    background:#fff; border:1px solid #e5e7eb; padding:6px;
+  }
+  .logo-tile img { max-width:100%; max-height:100%; object-fit:contain; }
+  .logo-mini {
+    width:22px; height:22px; border-radius:7px;
+    background:#fff; border:1.5px solid #fff;
+    display:flex; align-items:center; justify-content:center; padding:2px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.1);
+  }
+  .logo-mini img { max-width:100%; max-height:100%; object-fit:contain; }
+  .head {
+    width:56px; height:56px; border-radius:9999px;
+    object-fit:cover; object-position:center top;
+    border:2px solid #fff;
+  }
+  .head-ring { padding:2px; border-radius:9999px; }
+
+  /* Versus stack — for matchup / match-generic */
+  .vs { position:relative; width:60px; height:60px; }
+  .vs .lg { position:absolute; width:38px; height:38px; border-radius:10px; background:#fff; border:1px solid #e5e7eb; padding:4px; display:flex; align-items:center; justify-content:center; }
+  .vs .lg img { max-width:100%; max-height:100%; object-fit:contain; }
+  .vs .a { top:0; left:0; }
+  .vs .b { bottom:0; right:0; }
+  .vs .v { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:10px; font-weight:900; color:#0b1020; background:#fff; border:1px solid #e5e7eb; border-radius:9999px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; z-index:2; }
+
+  .q { font-size:15px; line-height:1.38; color:#111827; }
+  .q b { color:#0b1020; font-weight:700; }
+
+  .slot-table td, .slot-table th { padding:8px 10px; border-bottom:1px solid #e5e7eb; font-size:13px; vertical-align:top; }
+  .slot-table th { text-align:left; color:#6b7280; font-weight:600; font-size:11px; letter-spacing:0.04em; text-transform:uppercase; background:#f9fafb; }
+  .chip { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:2px 8px; border-radius:9999px; background:#f3f4f6; color:#111827; }
+</style>
+</head>
+<body class="text-gray-900">
+
+<div class="max-w-[1280px] mx-auto px-6 py-10">
+  <header class="mb-8">
+    <p class="label text-navy-600">Markets tab — card redesign · v4 (slots swapped)</p>
+    <h1 class="text-3xl font-black text-navy-900 mt-1">Subject left, context right</h1>
+    <p class="text-gray-600 mt-2 max-w-3xl">
+      Same 3-slot system as v3, only the slots are mirrored. The <b>subject anchor</b> (team crest / player headshot / vs-layout) is now on the <b>LEFT</b> where the eye lands first; the <b>context badge</b> (OVER · BY OV · TOSS · MATCH) moves to the <b>RIGHT</b> where it acts as a tidy right-hand index. Same 12-combination grammar, mirrored.
+    </p>
+  </header>
+
+  <!-- ========== SLOT SYSTEM ========== -->
+  <section class="mb-10">
+    <h2 class="text-xl font-bold text-navy-900 mb-3">The mirrored 3-slot system</h2>
+
+    <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+    <table class="slot-table w-full">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>LEFT slot (who)</th>
+          <th>RIGHT slot (when)</th>
+          <th>Example</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="font-semibold text-navy-900">Over + Team</td>
+          <td><span class="chip">Team crest</span></td>
+          <td><span class="chip bg-navy-900 text-white">OVER 15</span></td>
+          <td>Will CSK score 10+ in over 15?</td>
+        </tr>
+        <tr>
+          <td class="font-semibold text-navy-900">Over + Player</td>
+          <td><span class="chip">Headshot + team tick</span></td>
+          <td><span class="chip bg-navy-900 text-white">BY OV 18</span></td>
+          <td>Will Dhoni hit 50+ by over 18?</td>
+        </tr>
+        <tr>
+          <td class="font-semibold text-navy-900">Generic Team (single)</td>
+          <td><span class="chip">Team crest</span></td>
+          <td><span class="chip bg-navy-700 text-white">TOSS</span> / <span class="chip bg-navy-700 text-white">MATCH</span></td>
+          <td>Will RR win the toss today?</td>
+        </tr>
+        <tr>
+          <td class="font-semibold text-navy-900">Generic Matchup (two teams)</td>
+          <td><span class="chip">Two crests · vs layout</span></td>
+          <td><span class="chip bg-navy-700 text-white">MATCH</span></td>
+          <td>Will RR beat CSK today?</td>
+        </tr>
+        <tr>
+          <td class="font-semibold text-navy-900">Generic Player</td>
+          <td><span class="chip">Headshot + team tick</span></td>
+          <td><span class="chip bg-navy-700 text-white">MATCH</span></td>
+          <td>Will Bumrah take a wicket today?</td>
+        </tr>
+        <tr>
+          <td class="font-semibold text-navy-900">Generic Match (no subject)</td>
+          <td><span class="chip">Two crests · vs layout</span> (derived from match)</td>
+          <td><span class="chip bg-navy-700 text-white">MATCH</span></td>
+          <td>Will it rain in today's match?</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p class="text-gray-600 mt-4 max-w-3xl text-sm">
+      <b>Why this ordering might read better:</b> the subject (team / player) is the most emotionally loaded element — leading with it matches how people describe bets out loud ("CSK to hit 10 in the 15th"). The context badge on the right functions like a compact meta-tag, closer to the action buttons.
+    </p>
+  </section>
+
+  <!-- ========== SIX RENDERED CARDS ========== -->
+  <section class="mb-16">
+    <p class="label text-navy-600">All six categories rendered with slots mirrored</p>
+    <h2 class="text-2xl font-bold text-navy-900 mt-1 mb-5">The feed</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <!-- 1. Over + Team -->
+      <article class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div class="flex items-start gap-3">
+          <div class="who shrink-0"><div class="logo-tile"><img src="/logos/csk.svg" alt="CSK"></div></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="label text-gray-400">① Over + team</span>
+              <span class="ml-auto label text-gray-400">62 coins · 4</span>
+            </div>
+            <p class="q">Will <b>CSK</b> score <b>10 or more runs</b> in over <b>15</b>?</p>
+          </div>
+          <div class="ctx shrink-0"><div class="l">OVER</div><div class="n">15</div></div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-yes" style="width:64%"></div></div>
+          <span class="text-sm font-bold text-yes">YES 64%</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES · 64¢</button>
+          <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO · 36¢</button>
+        </div>
+      </article>
+
+      <!-- 2. Over + Player -->
+      <article class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div class="flex items-start gap-3">
+          <div class="who shrink-0">
+            <div class="relative">
+              <div class="head-ring" style="background:#FDB913"><img src="/players/dhoni.jpg" alt="MS Dhoni" class="head"/></div>
+              <div class="absolute -bottom-1 -right-1 logo-mini"><img src="/logos/csk.svg" alt="CSK"></div>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="label text-gray-400">② Over + player</span>
+              <span class="ml-auto label text-gray-400">41 coins · 3</span>
+            </div>
+            <p class="q">Will <b>MS Dhoni</b> score <b>50 or more runs</b> by the end of over <b>18</b>?</p>
+          </div>
+          <div class="ctx by shrink-0"><div class="l">BY OV</div><div class="n">18</div></div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-yes" style="width:72%"></div></div>
+          <span class="text-sm font-bold text-yes">YES 72%</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES · 72¢</button>
+          <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO · 28¢</button>
+        </div>
+      </article>
+
+      <!-- 3. Generic Team — Toss -->
+      <article class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div class="flex items-start gap-3">
+          <div class="who shrink-0"><div class="logo-tile"><img src="/logos/rr.svg" alt="RR"></div></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="label text-gray-400">③ Generic · single team</span>
+              <span class="ml-auto label text-gray-400">210 coins · 12</span>
+            </div>
+            <p class="q">Will <b>Rajasthan Royals</b> win the <b>toss</b> today?</p>
+          </div>
+          <div class="ctx toss shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg>
+            <div class="t">TOSS</div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-yes" style="width:52%"></div></div>
+          <span class="text-sm font-bold text-yes">YES 52%</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES · 52¢</button>
+          <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO · 48¢</button>
+        </div>
+      </article>
+
+      <!-- 4. Generic Matchup -->
+      <article class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div class="flex items-start gap-3">
+          <div class="who shrink-0">
+            <div class="vs">
+              <div class="lg a"><img src="/logos/rr.svg" alt="RR"></div>
+              <div class="lg b"><img src="/logos/csk.svg" alt="CSK"></div>
+              <div class="v">vs</div>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="label text-gray-400">④ Matchup · two teams</span>
+              <span class="ml-auto label text-gray-400">480 coins · 22</span>
+            </div>
+            <p class="q">Will <b>Rajasthan Royals</b> beat <b>Chennai Super Kings</b> today?</p>
+          </div>
+          <div class="ctx match shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
+            <div class="t">MATCH</div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-yes" style="width:38%"></div></div>
+          <span class="text-sm font-bold text-yes">YES 38%</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES · 38¢</button>
+          <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO · 62¢</button>
+        </div>
+      </article>
+
+      <!-- 5. Generic Player -->
+      <article class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div class="flex items-start gap-3">
+          <div class="who shrink-0">
+            <div class="relative">
+              <div class="head-ring" style="background:#004BA0"><img src="/players/bumrah.jpg" alt="Bumrah" class="head"/></div>
+              <div class="absolute -bottom-1 -right-1 logo-mini"><img src="/logos/mi.svg" alt="MI"></div>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="label text-gray-400">⑤ Generic · player</span>
+              <span class="ml-auto label text-gray-400">150 coins · 8</span>
+            </div>
+            <p class="q">Will <b>Jasprit Bumrah</b> take a <b>wicket</b> today?</p>
+          </div>
+          <div class="ctx match shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
+            <div class="t">MATCH</div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-yes" style="width:81%"></div></div>
+          <span class="text-sm font-bold text-yes">YES 81%</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES · 81¢</button>
+          <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO · 19¢</button>
+        </div>
+      </article>
+
+      <!-- 6. Generic Match (no team / player) -->
+      <article class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div class="flex items-start gap-3">
+          <div class="who shrink-0">
+            <div class="vs">
+              <div class="lg a"><img src="/logos/csk.svg" alt="CSK"></div>
+              <div class="lg b"><img src="/logos/rr.svg" alt="RR"></div>
+              <div class="v">vs</div>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="label text-gray-400">⑥ Match-generic · no subject</span>
+              <span class="ml-auto label text-gray-400">95 coins · 6</span>
+            </div>
+            <p class="q">Will it <b>rain</b> during today's match?</p>
+          </div>
+          <div class="ctx match shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
+            <div class="t">MATCH</div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-yes" style="width:22%"></div></div>
+          <span class="text-sm font-bold text-yes">YES 22%</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES · 22¢</button>
+          <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO · 78¢</button>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ========== DESIGN DECISIONS ========== -->
+  <section class="mb-16">
+    <h2 class="text-2xl font-bold text-navy-900 mb-4">Three design decisions worth calling out</h2>
+
+    <!-- Decision 1 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-5 mb-4">
+      <p class="label text-navy-600">Decision 1</p>
+      <h3 class="font-bold text-lg text-navy-900 mb-2">Player cards keep the team-crest tick — always</h3>
+      <p class="text-gray-600 text-sm mb-4 max-w-3xl">You asked whether to include it for generic-player questions. My take: yes, always. IPL is team-affiliated — "Bumrah" and "MI" are effectively a linked identity for fans. The crest tick is 22×22, costs almost no space, and doubles the fan-pull. Compare:</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <article class="bg-gray-50 rounded-xl border border-gray-200 p-4">
+          <p class="label text-yes mb-2">✓ With team tick (recommended)</p>
+          <div class="flex items-start gap-3">
+            <div class="who shrink-0"><div class="relative"><div class="head-ring" style="background:#004BA0"><img src="/players/bumrah.jpg" class="head"/></div><div class="absolute -bottom-1 -right-1 logo-mini"><img src="/logos/mi.svg" alt=""></div></div></div>
+            <p class="q flex-1">Will <b>Jasprit Bumrah</b> take a <b>wicket</b> today?</p>
+            <div class="ctx match shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><div class="t">MATCH</div></div>
+          </div>
+        </article>
+        <article class="bg-gray-50 rounded-xl border border-gray-200 p-4">
+          <p class="label text-gray-500 mb-2">Without team tick</p>
+          <div class="flex items-start gap-3">
+            <div class="who shrink-0"><img src="/players/bumrah.jpg" class="head" style="border-color:#e5e7eb"/></div>
+            <p class="q flex-1">Will <b>Jasprit Bumrah</b> take a <b>wicket</b> today?</p>
+            <div class="ctx match shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><div class="t">MATCH</div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <!-- Decision 2 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-5 mb-4">
+      <p class="label text-navy-600">Decision 2</p>
+      <h3 class="font-bold text-lg text-navy-900 mb-2">Match-generic questions inherit the matchup logos</h3>
+      <p class="text-gray-600 text-sm mb-4 max-w-3xl">"Will it rain?" has no team or player subject, but the <i>contract</i> has a <code>match_id</code>. We can always derive the two teams playing that match and render them on the LEFT as a vs-layout. Card stays identifiable ("this is about today's CSK–RR game"), no empty slot, no extra admin input.</p>
+      <article class="bg-gray-50 rounded-xl border border-gray-200 p-4 max-w-xl">
+        <div class="flex items-start gap-3">
+          <div class="who shrink-0"><div class="vs"><div class="lg a"><img src="/logos/csk.svg"></div><div class="lg b"><img src="/logos/rr.svg"></div><div class="v">vs</div></div></div>
+          <p class="q flex-1">Will the <b>total match score</b> be above <b>320</b>?</p>
+          <div class="ctx match shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><div class="t">MATCH</div></div>
+        </div>
+      </article>
+    </div>
+
+    <!-- Decision 3 -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-5">
+      <p class="label text-navy-600">Decision 3</p>
+      <h3 class="font-bold text-lg text-navy-900 mb-2">RIGHT badge uses a small vocabulary of 4 tokens</h3>
+      <p class="text-gray-600 text-sm mb-4 max-w-3xl">The right slot can take one of four labels. This gives users a second scannable axis (filter by phase) without complicating admin input — admin just picks from a dropdown when creating the contract.</p>
+      <div class="flex flex-wrap gap-3 items-center">
+        <div class="ctx"><div class="l">OVER</div><div class="n">15</div></div>
+        <div class="ctx by"><div class="l">BY OV</div><div class="n">18</div></div>
+        <div class="ctx toss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg><div class="t">TOSS</div></div>
+        <div class="ctx match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><div class="t">MATCH</div></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-3">Over-specific (black) · Cumulative-by-over (black, yellow label) · Toss (deep blue) · Match-long (dark navy). Custom admin-only contracts can take a grey variant if needed.</p>
+    </div>
+  </section>
+
+  <!-- ========== SUMMARY ========== -->
+  <section class="mb-16">
+    <div class="p-6 bg-navy-900 text-gray-100 rounded-2xl">
+      <h3 class="font-bold text-xl mb-3">The system in one paragraph</h3>
+      <p class="text-sm leading-relaxed mb-4">
+        Every contract card is a <b>horizontal 3-slot layout</b>: 60×60 LEFT subject anchor · full question in the middle · 60×60 RIGHT context badge. Sentiment bar and YES/NO buttons sit below. The LEFT slot takes one of 3 variants (single logo · headshot+tick · vs-layout). The RIGHT slot takes one of 4 labels (OVER · BY OV · TOSS · MATCH). That's a fixed grammar of 12 combinations — plenty of range, zero visual chaos in the feed.
+      </p>
+      <h3 class="font-bold text-lg mb-2 mt-4">What admin picks when creating a contract</h3>
+      <ul class="list-disc pl-5 text-sm leading-relaxed space-y-1">
+        <li><b>Phase</b> dropdown: <code>over · by-over · toss · match</code> → drives RIGHT badge</li>
+        <li><b>Subject</b> dropdown: <code>team · matchup · player · match-generic</code> → drives LEFT slot</li>
+        <li><b>Team</b> / <b>Player</b> references pull from <code>teams</code> / <code>players</code> tables (with free-text fallback for obscure players)</li>
+        <li>The existing <code>match_id</code> is enough to auto-derive the two teams for vs-layout — no extra input needed</li>
+      </ul>
+      <h3 class="font-bold text-lg mb-2 mt-4">Tables needed</h3>
+      <ul class="list-disc pl-5 text-sm leading-relaxed space-y-1">
+        <li><code>teams</code> (id, name, short, primary_colour, logo_path) — seeded with the 10 IPL teams; logos already in <code>/public/logos/</code></li>
+        <li><code>players</code> (id, name, team_id, headshot_path) — seeded with marquee players; grows as admin adds</li>
+        <li><code>contracts</code> gains: <code>phase</code> enum, <code>subject_kind</code> enum, optional <code>team_id</code>, optional <code>opponent_team_id</code>, optional <code>player_id</code></li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Create Contract — Admin Redesign Proposal</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: { 900:'#0b1020', 800:'#1a1a2e', 700:'#16213e', 600:'#0f3460' },
+          yes:  { DEFAULT:'#2e7d32', light:'#4caf50' },
+          no:   { DEFAULT:'#c62828', light:'#ef5350' },
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { background:#f6f7fb; }
+  .label { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; }
+
+  /* Card mockup styles — copied from card-mockups */
+  .ctx { width:60px; height:60px; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#1a1a2e; color:#fff; padding:4px; }
+  .ctx .l { font-size:9px; letter-spacing:0.12em; color:#9ca3af; line-height:1.1; font-weight:700; }
+  .ctx .n { font-size:24px; font-weight:900; line-height:1; font-family:ui-monospace,monospace; margin-top:2px; }
+  .ctx .t { font-size:13px; font-weight:800; letter-spacing:0.04em; line-height:1.05; margin-top:2px; }
+  .ctx.by .l { color:#facc15; }
+  .ctx.toss { background:#0f3460; }
+  .ctx.toss .l { color:#fbbf24; }
+  .ctx.match { background:#16213e; }
+  .ctx svg { width:20px; height:20px; }
+
+  .who { width:60px; height:60px; display:flex; align-items:center; justify-content:center; }
+  .logo-tile { width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:#fff; border:1px solid #e5e7eb; padding:6px; }
+  .logo-tile img { max-width:100%; max-height:100%; object-fit:contain; }
+  .logo-mini { width:22px; height:22px; border-radius:7px; background:#fff; border:1.5px solid #fff; display:flex; align-items:center; justify-content:center; padding:2px; box-shadow:0 1px 2px rgba(0,0,0,0.1); }
+  .logo-mini img { max-width:100%; max-height:100%; object-fit:contain; }
+  .head { width:56px; height:56px; border-radius:9999px; object-fit:cover; object-position:center top; border:2px solid #fff; }
+  .head-ring { padding:2px; border-radius:9999px; }
+  .vs { position:relative; width:60px; height:60px; }
+  .vs .lg { position:absolute; width:38px; height:38px; border-radius:10px; background:#fff; border:1px solid #e5e7eb; padding:4px; display:flex; align-items:center; justify-content:center; }
+  .vs .lg img { max-width:100%; max-height:100%; object-fit:contain; }
+  .vs .a { top:0; left:0; } .vs .b { bottom:0; right:0; }
+  .vs .v { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:10px; font-weight:900; color:#0b1020; background:#fff; border:1px solid #e5e7eb; border-radius:9999px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; z-index:2; }
+  .q { font-size:15px; line-height:1.38; color:#111827; }
+  .q b { color:#0b1020; font-weight:700; }
+
+  /* Admin form styles */
+  .tile {
+    border:1.5px solid #e5e7eb; border-radius:14px; padding:12px;
+    display:flex; flex-direction:column; gap:4px; cursor:pointer;
+    background:#fff; transition:all 0.15s;
+  }
+  .tile:hover { border-color:#c7d2fe; }
+  .tile.active { border-color:#1a1a2e; background:#f8fafc; box-shadow:0 0 0 3px rgba(26,26,46,0.08); }
+  .tile .ti { font-weight:700; color:#0b1020; font-size:13px; }
+  .tile .td { font-size:11px; color:#6b7280; line-height:1.3; }
+
+  .team-cell {
+    border:2px solid transparent; border-radius:12px; padding:8px;
+    display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;
+    background:#fff; transition:all 0.15s;
+  }
+  .team-cell:hover { background:#f3f4f6; }
+  .team-cell.active { border-color:#1a1a2e; background:#f8fafc; }
+  .team-cell img { width:48px; height:48px; object-fit:contain; }
+  .team-cell .tn { font-size:10px; font-weight:700; color:#0b1020; letter-spacing:0.04em; }
+
+  .player-cell {
+    border:2px solid transparent; border-radius:12px; padding:8px;
+    display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer;
+    background:#fff; transition:all 0.15s; text-align:center;
+  }
+  .player-cell:hover { background:#f3f4f6; }
+  .player-cell.active { border-color:#1a1a2e; background:#f8fafc; }
+  .player-cell img { width:52px; height:52px; border-radius:9999px; object-fit:cover; object-position:center top; border:2px solid #fff; box-shadow:0 0 0 2px var(--ring, #e5e7eb); }
+  .player-cell .pn { font-size:11px; font-weight:700; color:#0b1020; line-height:1.2; }
+  .player-cell .pr { font-size:9px; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; }
+
+  .field-lbl { font-size:11px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px; }
+  .input { border:1px solid #d1d5db; border-radius:8px; padding:6px 10px; font-size:13px; width:100%; }
+  .chip { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:2px 8px; border-radius:9999px; background:#f3f4f6; color:#111827; }
+</style>
+</head>
+<body class="text-gray-900">
+
+<div class="max-w-[1280px] mx-auto px-6 py-10">
+  <header class="mb-8">
+    <p class="label text-navy-600">Create Contract — admin redesign proposal</p>
+    <h1 class="text-3xl font-black text-navy-900 mt-1">Pick. Don't type.</h1>
+    <p class="text-gray-600 mt-2 max-w-3xl">
+      The admin form is rebuilt around the same 3-slot grammar we agreed on for the card.
+      Admin picks <b>phase</b> and <b>type</b> from tiles, picks <b>teams</b> from logo cells,
+      and picks <b>players</b> from headshot cells (auto-filtered by the selected team).
+      The contract card renders live on the right as the form is filled — WYSIWYG.
+    </p>
+  </header>
+
+  <!-- ========== MATCH CONTEXT STRIP ========== -->
+  <section class="mb-8">
+    <div class="p-4 bg-navy-900 text-gray-100 rounded-2xl flex items-center gap-4">
+      <span class="label text-gray-400">Active match</span>
+      <div class="w-7 h-7 rounded-md bg-white p-1 flex items-center justify-center"><img src="/logos/csk.svg" class="w-full h-full object-contain"></div>
+      <span class="font-bold">Chennai Super Kings</span>
+      <span class="text-gray-500">vs</span>
+      <div class="w-7 h-7 rounded-md bg-white p-1 flex items-center justify-center"><img src="/logos/rr.svg" class="w-full h-full object-contain"></div>
+      <span class="font-bold">Rajasthan Royals</span>
+      <span class="text-gray-500 ml-auto text-sm">20 Apr 2026 · 19:30 IST</span>
+      <button class="text-xs px-3 py-1.5 rounded-lg border border-gray-600 hover:bg-navy-800">Switch match</button>
+    </div>
+    <p class="text-xs text-gray-500 mt-2">Every contract created here auto-attaches to this <code>match_id</code>. Matchup logos for "RR vs CSK" cards and match-generic cards are derived from here — no extra picker needed.</p>
+  </section>
+
+  <!-- ========== STEP 1: PHASE ========== -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-navy-900 mb-1">Step 1 · Pick the phase</h2>
+    <p class="text-sm text-gray-600 mb-3">Drives the RIGHT badge on the card. Four tokens, four tiles.</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="tile active">
+        <div class="flex items-center gap-2"><div class="ctx" style="width:36px; height:36px; border-radius:8px; padding:2px"><div class="l">OVER</div><div class="n" style="font-size:14px">15</div></div><span class="ti">Specific over</span></div>
+        <span class="td">Runs, wicket, boundary — tied to one over</span>
+      </div>
+      <div class="tile">
+        <div class="flex items-center gap-2"><div class="ctx by" style="width:36px; height:36px; border-radius:8px; padding:2px"><div class="l">BY OV</div><div class="n" style="font-size:14px">18</div></div><span class="ti">By end of over</span></div>
+        <span class="td">Cumulative — total, milestone</span>
+      </div>
+      <div class="tile">
+        <div class="flex items-center gap-2"><div class="ctx toss" style="width:36px; height:36px; border-radius:8px; padding:2px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px; height:14px"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg></div><span class="ti">Toss</span></div>
+        <span class="td">Pre-match coin toss</span>
+      </div>
+      <div class="tile">
+        <div class="flex items-center gap-2"><div class="ctx match" style="width:36px; height:36px; border-radius:8px; padding:2px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px; height:14px"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg></div><span class="ti">Match-long</span></div>
+        <span class="td">Anything about today's game overall</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== STEP 2: PREDICTION TYPE ========== -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-navy-900 mb-1">Step 2 · Pick the prediction type</h2>
+    <p class="text-sm text-gray-600 mb-3">Tiles shown depend on the phase picked in step 1. <span class="chip bg-navy-900 text-white">Specific over</span> phase selected below.</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="tile active"><span class="ti">Runs in over</span><span class="td">Team scores N+ runs</span></div>
+      <div class="tile"><span class="ti">Wicket in over</span><span class="td">Team loses a wicket</span></div>
+      <div class="tile"><span class="ti">Boundary in over</span><span class="td">A six or four</span></div>
+      <div class="tile"><span class="ti">Batsman runs in over</span><span class="td">A specific batsman scores N+</span></div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">
+      If phase were <b>Match-long</b>: tiles become <i>Match winner</i> · <i>Total match score</i> · <i>Player match stat</i> · <i>Custom question</i>.
+      If phase were <b>Toss</b>: tiles become <i>Toss winner</i> · <i>Bat or bowl first</i>.
+    </p>
+  </section>
+
+  <!-- ========== THE FORM, 3 STATES ========== -->
+  <section class="mb-10">
+    <h2 class="text-xl font-bold text-navy-900 mb-4">The form, split-screen: inputs left · live card right</h2>
+
+    <!-- STATE A: Over + Team -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6 bg-white rounded-2xl border border-gray-200 p-5">
+      <div class="lg:col-span-3">
+        <p class="label text-navy-600 mb-1">State A · runs in over (Over + Team)</p>
+        <h3 class="font-bold text-navy-900 mb-3">Team picker + simple params</h3>
+
+        <div class="mb-3">
+          <div class="field-lbl">Team</div>
+          <div class="grid grid-cols-5 gap-2">
+            <div class="team-cell active"><img src="/logos/csk.svg"><span class="tn">CSK</span></div>
+            <div class="team-cell"><img src="/logos/mi.svg"><span class="tn">MI</span></div>
+            <div class="team-cell"><img src="/logos/rcb.svg"><span class="tn">RCB</span></div>
+            <div class="team-cell"><img src="/logos/rr.svg"><span class="tn">RR</span></div>
+            <div class="team-cell"><img src="/logos/dc.svg"><span class="tn">DC</span></div>
+            <div class="team-cell"><img src="/logos/kkr.svg"><span class="tn">KKR</span></div>
+            <div class="team-cell"><img src="/logos/pbks.svg"><span class="tn">PBKS</span></div>
+            <div class="team-cell"><img src="/logos/srh.svg"><span class="tn">SRH</span></div>
+            <div class="team-cell"><img src="/logos/gt.svg"><span class="tn">GT</span></div>
+            <div class="team-cell"><img src="/logos/lsg.svg"><span class="tn">LSG</span></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div><div class="field-lbl">Over number</div><input class="input" value="15" type="number"></div>
+          <div><div class="field-lbl">Operator</div>
+            <select class="input"><option>≥ at least</option><option>&gt; more than</option><option>= exactly</option></select>
+          </div>
+          <div><div class="field-lbl">Runs threshold</div><input class="input" value="10" type="number"></div>
+        </div>
+
+        <div class="mt-3">
+          <div class="field-lbl">Resolve mode</div>
+          <div class="flex gap-2 text-sm">
+            <label class="flex items-center gap-2"><input type="radio" name="rmA" checked> Auto (from CricAPI)</label>
+            <label class="flex items-center gap-2"><input type="radio" name="rmA"> Manual</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <p class="label text-gray-500 mb-1">Live preview</p>
+        <article class="bg-white rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-start gap-3">
+            <div class="who shrink-0"><div class="logo-tile"><img src="/logos/csk.svg"></div></div>
+            <div class="flex-1 min-w-0">
+              <span class="label text-gray-400">Runs in over</span>
+              <p class="q mt-1">Will <b>CSK</b> score <b>10 or more runs</b> in over <b>15</b>?</p>
+            </div>
+            <div class="ctx shrink-0"><div class="l">OVER</div><div class="n">15</div></div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES</button>
+            <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO</button>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <!-- STATE B: By-over + Player (auto-filter demo) -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6 bg-white rounded-2xl border border-gray-200 p-5">
+      <div class="lg:col-span-3">
+        <p class="label text-navy-600 mb-1">State B · batsman milestone (By over + Player)</p>
+        <h3 class="font-bold text-navy-900 mb-3">Pick team → players auto-filter</h3>
+
+        <div class="mb-3">
+          <div class="field-lbl">Team</div>
+          <div class="grid grid-cols-10 gap-1">
+            <div class="team-cell active" style="padding:4px"><img src="/logos/csk.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/mi.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/rcb.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/rr.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/dc.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/kkr.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/pbks.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/srh.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/gt.svg" style="width:28px; height:28px"></div>
+            <div class="team-cell" style="padding:4px"><img src="/logos/lsg.svg" style="width:28px; height:28px"></div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="flex items-center justify-between mb-1">
+            <div class="field-lbl mb-0">Player · filtered by CSK squad</div>
+            <input class="input" style="max-width:180px; padding:4px 10px" placeholder="Search player…">
+          </div>
+          <div class="grid grid-cols-5 gap-2">
+            <div class="player-cell active" style="--ring:#FDB913"><img src="/players/dhoni.jpg"><div><div class="pn">MS Dhoni</div><div class="pr">WK · Cap</div></div></div>
+            <div class="player-cell" style="--ring:#FDB913"><div style="width:52px; height:52px; border-radius:9999px; background:#FDB913; color:#0b1020; display:flex; align-items:center; justify-content:center; font-weight:800">RG</div><div><div class="pn">R. Gaikwad</div><div class="pr">Batter</div></div></div>
+            <div class="player-cell" style="--ring:#FDB913"><div style="width:52px; height:52px; border-radius:9999px; background:#FDB913; color:#0b1020; display:flex; align-items:center; justify-content:center; font-weight:800">RR</div><div><div class="pn">R. Ravindra</div><div class="pr">All-R</div></div></div>
+            <div class="player-cell" style="--ring:#FDB913"><div style="width:52px; height:52px; border-radius:9999px; background:#FDB913; color:#0b1020; display:flex; align-items:center; justify-content:center; font-weight:800">SD</div><div><div class="pn">S. Dube</div><div class="pr">All-R</div></div></div>
+            <div class="player-cell" style="--ring:#FDB913"><div style="width:52px; height:52px; border-radius:9999px; background:#FDB913; color:#0b1020; display:flex; align-items:center; justify-content:center; font-weight:800">DC</div><div><div class="pn">D. Chahar</div><div class="pr">Bowler</div></div></div>
+            <div class="player-cell text-gray-400" style="border-style:dashed"><div style="width:52px; height:52px; border-radius:9999px; background:#f3f4f6; display:flex; align-items:center; justify-content:center; font-weight:800; color:#9ca3af">+</div><div><div class="pn">Add player</div><div class="pr">Not in list</div></div></div>
+          </div>
+          <p class="text-[11px] text-gray-500 mt-2">Showing 5 of 24 CSK squad players. Search box filters by name. "+" creates a new player (name, optional headshot).</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div><div class="field-lbl">Milestone (runs)</div><input class="input" value="50" type="number"></div>
+          <div><div class="field-lbl">By end of over</div><input class="input" value="18" type="number"></div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <p class="label text-gray-500 mb-1">Live preview</p>
+        <article class="bg-white rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-start gap-3">
+            <div class="who shrink-0">
+              <div class="relative">
+                <div class="head-ring" style="background:#FDB913"><img src="/players/dhoni.jpg" class="head"/></div>
+                <div class="absolute -bottom-1 -right-1 logo-mini"><img src="/logos/csk.svg"></div>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <span class="label text-gray-400">Batsman milestone</span>
+              <p class="q mt-1">Will <b>MS Dhoni</b> score <b>50 or more runs</b> by the end of over <b>18</b>?</p>
+            </div>
+            <div class="ctx by shrink-0"><div class="l">BY OV</div><div class="n">18</div></div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES</button>
+            <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO</button>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <!-- STATE C: Match-long + Matchup (auto-derived) -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6 bg-white rounded-2xl border border-gray-200 p-5">
+      <div class="lg:col-span-3">
+        <p class="label text-navy-600 mb-1">State C · match winner (Match + Matchup)</p>
+        <h3 class="font-bold text-navy-900 mb-3">Matchup auto-derived — no team picker shown</h3>
+
+        <div class="mb-3">
+          <div class="field-lbl">Matchup</div>
+          <div class="p-3 rounded-xl border border-gray-200 bg-gray-50 flex items-center gap-3">
+            <div class="vs" style="width:48px; height:48px"><div class="lg a" style="width:30px; height:30px"><img src="/logos/rr.svg"></div><div class="lg b" style="width:30px; height:30px"><img src="/logos/csk.svg"></div><div class="v" style="width:14px; height:14px; font-size:8px">vs</div></div>
+            <div>
+              <div class="text-sm font-bold text-navy-900">Rajasthan Royals <span class="text-gray-400 font-normal">vs</span> Chennai Super Kings</div>
+              <div class="text-[11px] text-gray-500">Derived from active match — no input needed</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="field-lbl">"Will X beat Y?" — pick the YES team</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="team-cell active flex-row"><img src="/logos/rr.svg" style="width:36px; height:36px"><span class="tn" style="font-size:12px">Rajasthan Royals wins</span></div>
+            <div class="team-cell flex-row"><img src="/logos/csk.svg" style="width:36px; height:36px"><span class="tn" style="font-size:12px">CSK wins</span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="field-lbl">Resolve mode</div>
+          <div class="flex gap-2 text-sm">
+            <label class="flex items-center gap-2"><input type="radio" name="rmC" checked> Auto (from CricAPI)</label>
+            <label class="flex items-center gap-2"><input type="radio" name="rmC"> Manual</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <p class="label text-gray-500 mb-1">Live preview</p>
+        <article class="bg-white rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-start gap-3">
+            <div class="who shrink-0"><div class="vs"><div class="lg a"><img src="/logos/rr.svg"></div><div class="lg b"><img src="/logos/csk.svg"></div><div class="v">vs</div></div></div>
+            <div class="flex-1 min-w-0">
+              <span class="label text-gray-400">Match winner</span>
+              <p class="q mt-1">Will <b>Rajasthan Royals</b> beat <b>Chennai Super Kings</b> today?</p>
+            </div>
+            <div class="ctx match shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><div class="t">MATCH</div></div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES</button>
+            <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO</button>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <!-- STATE D: Match-long + Custom (manual) -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 bg-white rounded-2xl border border-gray-200 p-5">
+      <div class="lg:col-span-3">
+        <p class="label text-navy-600 mb-1">State D · custom match question (Match + Match-generic)</p>
+        <h3 class="font-bold text-navy-900 mb-3">Fully free-form — for "Will it rain?" etc.</h3>
+
+        <div class="mb-3">
+          <div class="field-lbl">Question (as users will see it)</div>
+          <input class="input" value="Will it rain during today's match?">
+          <p class="text-[11px] text-gray-500 mt-1">Bolded keywords are applied by a formatter — you don't need to add &lt;b&gt; tags.</p>
+        </div>
+
+        <div>
+          <div class="field-lbl">Subject on the card</div>
+          <div class="flex gap-2 text-sm items-center">
+            <label class="flex items-center gap-2"><input type="radio" name="subD" checked> Matchup (both teams)</label>
+            <label class="flex items-center gap-2"><input type="radio" name="subD"> Single team</label>
+            <label class="flex items-center gap-2"><input type="radio" name="subD"> Player</label>
+          </div>
+          <p class="text-[11px] text-gray-500 mt-1">Default inherits matchup from active match. Switch to Single team / Player if the question has one.</p>
+        </div>
+
+        <div class="mt-3">
+          <div class="field-lbl">Resolve mode</div>
+          <div class="flex gap-2 text-sm">
+            <label class="flex items-center gap-2"><input type="radio" name="rmD"> Auto</label>
+            <label class="flex items-center gap-2"><input type="radio" name="rmD" checked> Manual — admin resolves</label>
+          </div>
+          <p class="text-[11px] text-gray-500 mt-1">Weather, rain-stoppage, non-scoreable events → manual.</p>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <p class="label text-gray-500 mb-1">Live preview</p>
+        <article class="bg-white rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-start gap-3">
+            <div class="who shrink-0"><div class="vs"><div class="lg a"><img src="/logos/csk.svg"></div><div class="lg b"><img src="/logos/rr.svg"></div><div class="v">vs</div></div></div>
+            <div class="flex-1 min-w-0">
+              <span class="label text-gray-400">Custom</span>
+              <p class="q mt-1">Will it <b>rain</b> during today's match?</p>
+            </div>
+            <div class="ctx match shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><div class="t">MATCH</div></div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button class="py-2 rounded-lg bg-yes text-white font-bold text-sm">YES</button>
+            <button class="py-2 rounded-lg bg-no text-white font-bold text-sm">NO</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== PLAYER DB STRATEGY ========== -->
+  <section class="mb-10">
+    <h2 class="text-xl font-bold text-navy-900 mb-2">The player DB — answering your main question</h2>
+    <p class="text-gray-600 max-w-3xl mb-4">Yes, completely doable. ~10 teams × ~25 squad players = <b>~250 rows total</b> — trivial for SQLite. Team selection auto-filters players via a <code>team_id</code> FK on the players table. The real question isn't feasibility, it's how we handle the edge cases below.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <p class="label text-yes mb-1">✓ Easy path</p>
+        <h3 class="font-bold text-navy-900 text-sm mb-1">Seed marquee players first</h3>
+        <p class="text-xs text-gray-600">Start with ~15 top players per team (captains, openers, main bowlers). Wikipedia has solid headshots for every IPL star. Covers 90% of contracts you'll actually create.</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <p class="label text-navy-600 mb-1">Fallback</p>
+        <h3 class="font-bold text-navy-900 text-sm mb-1">"+ Add player" inline</h3>
+        <p class="text-xs text-gray-600">If the player you want isn't in the filtered list, the last grid cell is a "+ Add" tile. Small modal: name · role · optional headshot upload. Saves to DB, appears in the list immediately. No second admin screen needed.</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <p class="label text-gray-500 mb-1">Graceful degradation</p>
+        <h3 class="font-bold text-navy-900 text-sm mb-1">No headshot? Initials on team colour</h3>
+        <p class="text-xs text-gray-600">A player added without a headshot renders as initials on the team's primary colour (same treatment as the placeholder cells in State B above). Card still looks consistent — no broken images ever.</p>
+      </div>
+    </div>
+
+    <div class="mt-4 p-4 bg-white rounded-xl border border-dashed border-gray-300">
+      <p class="label text-navy-600 mb-1">Seasonal refresh</p>
+      <p class="text-xs text-gray-600">Squads change each IPL auction (roughly Dec–Jan each year). Plan: a one-off admin script run before each season that updates <code>team_id</code> for players who moved and marks retired players <code>is_active=0</code>. Not a weekly chore.</p>
+    </div>
+  </section>
+
+  <!-- ========== BACKEND/DB CHANGES ========== -->
+  <section class="mb-16">
+    <div class="p-6 bg-navy-900 text-gray-100 rounded-2xl">
+      <h2 class="text-xl font-bold mb-4">What has to change under the hood</h2>
+
+      <h3 class="font-bold text-base mb-2 mt-2">DB schema additions</h3>
+      <pre class="text-[12px] bg-navy-800 p-3 rounded-lg overflow-x-auto leading-relaxed">CREATE TABLE teams (
+  id INTEGER PRIMARY KEY,
+  name TEXT, short_code TEXT UNIQUE,
+  primary_colour TEXT,
+  logo_path TEXT                 -- '/logos/csk.svg'
+);
+
+CREATE TABLE players (
+  id INTEGER PRIMARY KEY,
+  name TEXT, slug TEXT UNIQUE,
+  team_id INTEGER REFERENCES teams(id),
+  role TEXT,                     -- batter | bowler | all-rounder | wk
+  headshot_path TEXT,            -- '/players/dhoni.jpg' or NULL
+  is_active INTEGER DEFAULT 1
+);
+CREATE INDEX idx_players_team ON players(team_id);
+
+ALTER TABLE contracts ADD COLUMN phase TEXT;           -- over | by_over | toss | match
+ALTER TABLE contracts ADD COLUMN subject_kind TEXT;    -- team | player | matchup | match_generic
+ALTER TABLE contracts ADD COLUMN team_id INTEGER REFERENCES teams(id);
+ALTER TABLE contracts ADD COLUMN opponent_team_id INTEGER REFERENCES teams(id);
+ALTER TABLE contracts ADD COLUMN player_id INTEGER REFERENCES players(id);</pre>
+
+      <h3 class="font-bold text-base mb-2 mt-4">Existing contract types — kept, extended, renamed</h3>
+      <ul class="list-disc pl-5 text-sm space-y-1">
+        <li><b>Kept:</b> <code>runs_over</code>, <code>wicket_over</code>, <code>team_total</code>, <code>batsman_milestone</code>, <code>boundary_over</code>, <code>manual</code></li>
+        <li><b>New:</b> <code>toss_winner</code>, <code>match_winner</code>, <code>player_match_stat</code> (e.g. "Bumrah takes a wicket today")</li>
+        <li><code>manual</code> stays — it's the escape hatch for anything we don't model</li>
+      </ul>
+
+      <h3 class="font-bold text-base mb-2 mt-4">New API endpoints</h3>
+      <ul class="list-disc pl-5 text-sm space-y-1">
+        <li><code>GET /api/teams</code> — 10 rows, cached on client; powers team picker</li>
+        <li><code>GET /api/players?team_id=...&q=...</code> — filtered + searchable; powers player picker</li>
+        <li><code>POST /api/players</code> (admin only) — inline "Add player" from the create form</li>
+      </ul>
+
+      <h3 class="font-bold text-base mb-2 mt-4">Seed data (one-time)</h3>
+      <ul class="list-disc pl-5 text-sm space-y-1">
+        <li><b>10 teams</b> — full name, short code, primary colour, logo path. Logos already downloaded to <code>client/public/logos/</code>.</li>
+        <li><b>~150 players</b> to start (15/team × 10 teams). Wikipedia headshots for marquee names, initials fallback for the rest. Downloader script similar to what we used for Dhoni/Kohli/Bumrah earlier.</li>
+      </ul>
+
+      <h3 class="font-bold text-base mb-2 mt-4">Form rewrite in <code>Admin.jsx</code></h3>
+      <ul class="list-disc pl-5 text-sm space-y-1">
+        <li>Phase tiles → Type tiles → Subject pickers → Params (phase- and type-dependent reveal)</li>
+        <li>New <code>TeamGrid</code> component — 10 logo cells, single-select</li>
+        <li>New <code>PlayerGrid</code> component — takes <code>teamId</code>, searchable, "+ Add" last cell</li>
+        <li>New <code>MatchupAuto</code> component — read-only, pulls from active match</li>
+        <li>Existing <code>ContractPreview</code> replaced with live render of the new card</li>
+        <li>Admin still keeps Save as Draft / Publish Now — no change to that flow</li>
+      </ul>
+
+      <h3 class="font-bold text-base mb-2 mt-4">Build sequence (if you approve)</h3>
+      <ol class="list-decimal pl-5 text-sm space-y-1">
+        <li><b>DB + seeds</b> — teams table, players table, seed 10 teams + 15 marquee players/team</li>
+        <li><b>API endpoints</b> — /teams, /players (GET + POST), simple & cached</li>
+        <li><b>Card component</b> — rewrite <code>ContractCard.jsx</code> to the new 3-slot layout using team/player joins</li>
+        <li><b>Admin form</b> — TeamGrid, PlayerGrid, phase/type tile flow, live preview</li>
+        <li><b>Migration</b> — backfill existing contracts' <code>phase</code>/<code>subject_kind</code>/<code>team_id</code> from their current <code>type</code> + <code>condition_json</code></li>
+        <li><b>Cut-over</b> — old Admin form retired once the new one is verified</li>
+      </ol>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
