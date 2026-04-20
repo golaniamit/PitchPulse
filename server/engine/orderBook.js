@@ -36,30 +36,39 @@ function matchOrders(contractId) {
   let tradesExecuted = 0;
 
   while (true) {
-    // Get best YES bid (highest YES price)
-    const yesBid = db.prepare(`
-      SELECT * FROM orders
-      WHERE contract_id = ? AND side = 'YES' AND status IN ('open', 'partial')
-      ORDER BY price DESC, created_at ASC LIMIT 1
+    // Find the best matchable pair directly.
+    // Price-time priority: highest YES price first, then highest NO price, then oldest orders.
+    // Excludes self-matches and requires YES price + NO price >= 100.
+    const pair = db.prepare(`
+      SELECT
+        y.id AS y_id, y.user_id AS y_user, y.price AS y_price,
+        y.quantity AS y_qty, y.quantity_filled AS y_filled, y.created_at AS y_created,
+        n.id AS n_id, n.user_id AS n_user, n.price AS n_price,
+        n.quantity AS n_qty, n.quantity_filled AS n_filled, n.created_at AS n_created
+      FROM orders y
+      JOIN orders n
+        ON n.contract_id = y.contract_id
+        AND n.side = 'NO'
+        AND n.status IN ('open', 'partial')
+        AND n.user_id != y.user_id
+        AND (y.price + n.price) >= 100
+      WHERE y.contract_id = ? AND y.side = 'YES' AND y.status IN ('open', 'partial')
+      ORDER BY y.price DESC, n.price DESC, y.created_at ASC, n.created_at ASC
+      LIMIT 1
     `).get(contractId);
 
-    if (!yesBid) break;
+    if (!pair) break;
 
-    // Find best NO bid from a DIFFERENT user, that is matchable
-    const noBid = db.prepare(`
-      SELECT * FROM orders
-      WHERE contract_id = ? AND side = 'NO' AND status IN ('open', 'partial')
-        AND user_id != ?
-        AND (price + ?) >= 100
-      ORDER BY price DESC, created_at ASC LIMIT 1
-    `).get(contractId, yesBid.user_id, yesBid.price);
+    const yesBid = {
+      id: pair.y_id, user_id: pair.y_user, price: pair.y_price,
+      quantity: pair.y_qty, quantity_filled: pair.y_filled, created_at: pair.y_created,
+    };
+    const noBid = {
+      id: pair.n_id, user_id: pair.n_user, price: pair.n_price,
+      quantity: pair.n_qty, quantity_filled: pair.n_filled, created_at: pair.n_created,
+    };
 
-    if (!noBid) break;
-
-    // Match condition: YES price + NO price >= 100 (already filtered above)
-    if (yesBid.price + noBid.price < 100) break;
-
-    // Trade at the YES bid price (maker sets price)
+    // Trade at the maker's price (whoever was resting in the book first)
     const tradePrice = yesBid.created_at <= noBid.created_at ? yesBid.price : (100 - noBid.price);
 
     const yesRemaining = yesBid.quantity - yesBid.quantity_filled;
