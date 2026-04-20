@@ -82,27 +82,44 @@ export default function TradePanel({ contract, onTraded }) {
         >NO</button>
       </div>
 
-      {/* Price slider inline with "Cost per contract" */}
-      <div className="flex items-center gap-5">
-        <input
-          type="range" min={1} max={99} value={price}
-          onChange={e => setPrice(+e.target.value)}
-          className="flex-1 h-2 accent-navy-800 cursor-pointer"
-        />
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-2xl font-bold text-navy-800 dark:text-gray-100 tabular-nums">
-            🪙 {price}
-          </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium leading-tight max-w-[80px] flex items-center gap-1">
+      {/* Price slider + "Cost per contract"
+          Mobile: label and value stacked above the slider (full-width slider).
+          Desktop (sm+): value + label flush right of the slider on a single row. */}
+      <div>
+        {/* Mobile-only header: label left, value right, above the slider */}
+        <div className="sm:hidden flex items-baseline justify-between mb-2">
+          <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1">
             Cost per contract
             <InfoTooltip text="The price you're willing to pay per contract, from 1–99. It doubles as the probability you're betting at — price 42 means you think this has a 42% chance of happening. You win 🪙 100 per contract if correct." />
           </span>
+          <span className="text-2xl font-bold text-navy-800 dark:text-gray-100 tabular-nums">
+            🪙 {price}
+          </span>
+        </div>
+        <div className="flex items-center gap-5">
+          <input
+            type="range" min={1} max={99} value={price}
+            onChange={e => setPrice(+e.target.value)}
+            className="flex-1 h-2 accent-navy-800 cursor-pointer"
+          />
+          {/* Desktop-only right-hand value + label */}
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+            <span className="text-2xl font-bold text-navy-800 dark:text-gray-100 tabular-nums">
+              🪙 {price}
+            </span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium leading-tight max-w-[80px] flex items-center gap-1">
+              Cost per contract
+              <InfoTooltip text="The price you're willing to pay per contract, from 1–99. It doubles as the probability you're betting at — price 42 means you think this has a 42% chance of happening. You win 🪙 100 per contract if correct." />
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Quantity — label + stepper on a single row */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm text-gray-600 dark:text-gray-300 font-semibold flex-shrink-0">Quantity</label>
+      {/* Quantity
+          Mobile: label on its own line, stepper full-width below.
+          Desktop (sm+): label + stepper on a single row. */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <label className="text-sm text-gray-600 dark:text-gray-300 font-semibold sm:flex-shrink-0">Quantity</label>
         <div className="flex items-center gap-2 flex-1">
           <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-bold">−</button>
           <input
