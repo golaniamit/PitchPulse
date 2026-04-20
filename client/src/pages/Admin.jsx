@@ -29,10 +29,12 @@ function buildTitle(type, fields) {
   return fields.custom_title || '...';
 }
 
-function ContractFields({ type, fields, onChange, teams }) {
-  // All fields are wrapped by Labeled so the admin doesn't rely on placeholder-only hints
-  // (which disappear the moment they start typing). Critical during a live match.
-  const Labeled = ({ label, children }) => (
+// Field wrapper with an uppercase label. MUST live at module scope —
+// if defined inside ContractFields it gets a fresh function reference on
+// every keystroke, which causes React to remount the child <input> and
+// the cursor loses focus after every character typed.
+function Labeled({ label, children }) {
+  return (
     <label className="block">
       <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">
         {label}
@@ -40,6 +42,9 @@ function ContractFields({ type, fields, onChange, teams }) {
       {children}
     </label>
   );
+}
+
+function ContractFields({ type, fields, onChange, teams }) {
   const inp = (name, placeholder, type2 = 'text') => (
     <input
       type={type2}

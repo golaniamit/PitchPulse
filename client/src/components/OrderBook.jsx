@@ -24,13 +24,16 @@ export default function OrderBook({ bids = [], asks = [], anonymize = true }) {
     ? (idToLabel.get(o.user_id) || 'Trader')
     : (o.username || 'anon');
 
-  const Row = ({ order, side }) => {
+  // Lowercased helper, not a component — invoked as a function so React
+  // doesn't treat each render as a new component type. Prevents row
+  // remounts on every WebSocket orderbook_update tick.
+  const row = (order, side) => {
     const remaining = order.quantity - order.quantity_filled;
     const isYes = side === 'YES';
     const pct = Math.round((remaining / (isYes ? maxBidSize : maxAskSize)) * 100);
     const label = nameFor(order);
     return (
-      <div className="relative flex items-center text-xs py-1 px-2">
+      <div key={order.id} className="relative flex items-center text-xs py-1 px-2">
         <div
           className={`absolute inset-0 opacity-10 ${isYes ? 'bg-yes' : 'bg-no'}`}
           style={{ width: `${pct}%`, ...(isYes ? { right: 0, left: 'auto' } : {}) }}
@@ -77,12 +80,12 @@ export default function OrderBook({ bids = [], asks = [], anonymize = true }) {
 
       <div className="flex">
         <div className="flex-1 min-h-[100px]">
-          {bids.slice(0, 6).map(b => <Row key={b.id} order={b} side="YES" />)}
+          {bids.slice(0, 6).map(b => row(b, 'YES'))}
           {bids.length === 0 && <p className="text-xs text-gray-400 dark:text-gray-500 p-3 text-center">No bids</p>}
         </div>
         <div className="w-px bg-gray-100 dark:bg-gray-700" />
         <div className="flex-1">
-          {asks.slice(0, 6).map(a => <Row key={a.id} order={a} side="NO" />)}
+          {asks.slice(0, 6).map(a => row(a, 'NO'))}
           {asks.length === 0 && <p className="text-xs text-gray-400 dark:text-gray-500 p-3 text-center">No asks</p>}
         </div>
       </div>
