@@ -31,7 +31,7 @@ export default function TradeHistory() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center gap-2 mb-4">
         <Link to="/portfolio" className="text-xs font-medium text-gray-500 hover:text-navy-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">← Portfolio</Link>
       </div>

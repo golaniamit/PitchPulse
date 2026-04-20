@@ -138,7 +138,7 @@ export default function Home({ openTour, tourActive }) {
         .filter(c => !q || c.title.toLowerCase().includes(q));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-4 py-6">
 
       {/* Tabs + Search + How it works */}
       <div className="flex items-center gap-2 mb-4">

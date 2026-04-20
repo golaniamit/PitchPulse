@@ -75,7 +75,7 @@ export default function Contract() {
   const bookCount = (book.bids?.length || 0) + (book.asks?.length || 0);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
       {/* Mobile breadcrumb — not shown on sm+ since the top nav is already compact */}
       <Link
         to="/"

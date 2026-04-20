@@ -669,7 +669,7 @@ export default function Admin() {
         />
       )}
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* Match selector */}
         <MatchSelector onTeamsChange={setMatchTeams} />
 

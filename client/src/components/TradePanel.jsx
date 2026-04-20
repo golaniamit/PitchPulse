@@ -82,57 +82,51 @@ export default function TradePanel({ contract, onTraded }) {
         >NO</button>
       </div>
 
-      {/* Price */}
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <label className="text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5">
-            Price (1–99)
-            <InfoTooltip text="The price you're willing to pay per contract, from 1–99. It doubles as the probability you're betting at — price 42 means you think this has a 42% chance of happening. You win 🪙 100 per contract if correct." />
-          </label>
-          <div className="w-14 text-center font-bold text-navy-800 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg py-1.5 text-sm">
-            {price}
-          </div>
-        </div>
+      {/* Price slider inline with "Cost per contract" */}
+      <div className="flex items-center gap-5">
         <input
           type="range" min={1} max={99} value={price}
           onChange={e => setPrice(+e.target.value)}
-          className="w-full h-2 accent-navy-800 cursor-pointer"
+          className="flex-1 h-2 accent-navy-800 cursor-pointer"
         />
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-2xl font-bold text-navy-800 dark:text-gray-100 tabular-nums">
+            🪙 {price}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium leading-tight max-w-[80px] flex items-center gap-1">
+            Cost per contract
+            <InfoTooltip text="The price you're willing to pay per contract, from 1–99. It doubles as the probability you're betting at — price 42 means you think this has a 42% chance of happening. You win 🪙 100 per contract if correct." />
+          </span>
+        </div>
       </div>
 
-      {/* Quantity */}
-      <div>
-        <label className="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-1">Quantity</label>
-        <div className="flex items-center gap-2">
+      {/* Quantity — label + stepper on a single row */}
+      <div className="flex items-center gap-3">
+        <label className="text-sm text-gray-600 dark:text-gray-300 font-semibold flex-shrink-0">Quantity</label>
+        <div className="flex items-center gap-2 flex-1">
           <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-bold">−</button>
           <input
             type="number" min={1} value={quantity}
             onChange={e => setQuantity(Math.max(1, +e.target.value))}
-            className="flex-1 text-center border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg py-1.5 text-sm font-semibold"
+            className="flex-1 text-center border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg py-1.5 text-base font-semibold tabular-nums"
           />
           <button onClick={() => setQuantity(q => q + 1)} className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-bold">+</button>
         </div>
       </div>
 
-      {/* P&L preview */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 text-sm space-y-1">
-        <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">Cost</span>
-          <span className="font-semibold dark:text-gray-100">🪙 {cost}</span>
+      {/* P&L preview — Cost is the hero number, outcomes are supporting rows */}
+      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 space-y-2">
+        <div className="flex justify-between items-baseline">
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Cost</span>
+          <span className="text-2xl font-extrabold text-navy-800 dark:text-gray-100 tabular-nums">🪙 {cost}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">If {side} wins</span>
-          <span className="font-semibold text-yes">+{pnlIfWin} 🪙</span>
+        <div className="flex justify-between text-xs pt-2 border-t border-gray-200 dark:border-gray-600">
+          <span className="text-gray-500 dark:text-gray-400">if {side} wins</span>
+          <span className="font-semibold text-yes tabular-nums">+{pnlIfWin} 🪙</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500 dark:text-gray-400">If {side} loses</span>
-          <span className="font-semibold text-no">{pnlIfLose} 🪙</span>
-        </div>
-        <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-1 mt-1">
-          <span className="text-gray-500 dark:text-gray-400">Balance after</span>
-          <span className={`font-semibold ${user.balance - cost < 0 ? 'text-no' : 'dark:text-gray-100'}`}>
-            🪙 {user.balance - cost}
-          </span>
+        <div className="flex justify-between text-xs">
+          <span className="text-gray-500 dark:text-gray-400">if {side} loses</span>
+          <span className="font-semibold text-no tabular-nums">{pnlIfLose} 🪙</span>
         </div>
       </div>
 

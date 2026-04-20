@@ -27,7 +27,7 @@ export default function Leaderboard() {
   const medals = ['🥇', '🥈', '🥉'];
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="p-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-start justify-between mb-3 gap-3">
