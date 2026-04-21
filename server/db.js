@@ -166,7 +166,7 @@ try { db.exec(`ALTER TABLE users ADD COLUMN balance_at_day_start INTEGER`); } ca
 try { db.exec(`ALTER TABLE users ADD COLUMN snapshot_date TEXT`); } catch (_) {}
 
 // New contract metadata columns — drive the 3-slot card layout.
-//   phase         : 'over' | 'by_over' | 'toss' | 'match'  (RIGHT badge token)
+//   phase         : 'over' | 'by_over' | 'toss' | 'match' | 'season'  (RIGHT badge token)
 //   subject_kind  : 'team' | 'player' | 'matchup' | 'match_generic' (LEFT slot variant)
 //   team_id       : single-team subjects (also the batsman's team for player cards)
 //   opponent_team_id : matchup subjects (auto-derived for match-generic)
@@ -180,6 +180,10 @@ try { db.exec(`ALTER TABLE contracts ADD COLUMN player_id INTEGER REFERENCES pla
 // bets (innings_score, custom_match with INN badge). Drives the 1ST INN /
 // 2ND INN badge variant on the card.
 try { db.exec(`ALTER TABLE contracts ADD COLUMN innings_number INTEGER`); } catch (_) {}
+// Season identifier (e.g. 'IPL26') — only set when phase='season'. Lets us
+// keep season-long contracts from different years separate in future and
+// drives the season-badge label on the card.
+try { db.exec(`ALTER TABLE contracts ADD COLUMN season_code TEXT`); } catch (_) {}
 
 // Grandfather only old accounts (no email = created before verification was added)
 // Never touch new registrations that are intentionally unverified

@@ -9,7 +9,11 @@ const PHASES = [
   { id: 'powerplay', label: 'Powerplay' },
   { id: 'death',     label: 'Death overs' },
   { id: 'match',     label: 'Match-long' },
+  { id: 'season',    label: 'Season-long' },
 ];
+
+const SEASON_CODES = ['IPL26'];
+const DEFAULT_SEASON_CODE = 'IPL26';
 
 const TYPES_BY_PHASE = {
   over: [
@@ -43,6 +47,13 @@ const TYPES_BY_PHASE = {
     { id: 'toss_winner',   label: 'Toss winner',    desc: 'Which team wins the toss' },
     { id: 'custom_match',  label: 'Custom (match)', desc: 'Flexible — any subject + badge' },
   ],
+  season: [
+    { id: 'season_team_finish',     label: 'Team league finish',  desc: 'Team finishes in top N of the league table' },
+    { id: 'season_team_wins_title', label: 'Title winner',        desc: 'Team lifts the trophy this season' },
+    { id: 'season_player_runs',     label: 'Player season runs',  desc: 'Batsman scores N+ runs across the season' },
+    { id: 'season_player_wickets',  label: 'Player season wickets', desc: 'Bowler takes N+ wickets across the season' },
+    { id: 'custom_season',          label: 'Custom (season)',     desc: 'Free-text season question' },
+  ],
 };
 
 // Default subject-kind per type. Custom_match gets overridden by admin.
@@ -57,6 +68,12 @@ const SUBJECT_KIND_BY_TYPE = {
   innings_score: 'team',
   toss_winner: 'team',
   custom_match: 'team',
+  // season
+  season_team_finish: 'team',
+  season_team_wins_title: 'team',
+  season_player_runs: 'player',
+  season_player_wickets: 'player',
+  custom_season: 'team',
   // legacy
   manual: 'match_generic',
   player_match_stat: 'player',
@@ -73,9 +90,13 @@ const TYPES_WITH_OPERATOR = new Set(['runs_over','team_total','runs_powerplay','
 const TYPES_WITH_MIN_WICKETS = new Set(['wicket_over','team_wickets_by_over','wickets_powerplay','wickets_death','bowler_wickets_by_over']);
 const TYPES_WITH_BOUNDARY = new Set(['boundary_over','boundaries_powerplay','boundaries_death']);
 const TYPES_WITH_MILESTONE = new Set(['batsman_milestone']);
-const TYPES_WITH_CUSTOM_TITLE = new Set(['custom_over','custom_by_over','custom_powerplay','custom_death','custom_match','manual']);
+const TYPES_WITH_CUSTOM_TITLE = new Set(['custom_over','custom_by_over','custom_powerplay','custom_death','custom_match','custom_season','manual']);
 const TYPES_WITH_OVER = new Set(['runs_over','wicket_over','boundary_over','custom_over','team_total','team_wickets_by_over','batsman_milestone','bowler_wickets_by_over','custom_by_over']);
 const TYPES_WITH_INNINGS = new Set(['innings_score']);   // custom_match has its own opt-in toggle
+// Season-specific extra inputs
+const TYPES_WITH_SEASON_POSITION   = new Set(['season_team_finish']);   // "Top N finish"
+const TYPES_WITH_SEASON_RUN_TOTAL  = new Set(['season_player_runs']);   // "Total runs across season"
+const TYPES_WITH_SEASON_WKT_TOTAL  = new Set(['season_player_wickets']); // "Total wickets across season"
 
 // ── Builders (title + condition_json) ───────────────────────────────
 
@@ -132,6 +153,12 @@ function buildTitle(type, fields, teams, players) {
     case 'toss_winner':   return `Will ${t(fields.team_id)} win the toss today?`;
     case 'custom_match':  return fields.custom_title || '...';
 
+    case 'season_team_finish':     return `Will ${t(fields.team_id)} finish in the top ${fields.threshold_position || 'N'} this season?`;
+    case 'season_team_wins_title': return `Will ${t(fields.team_id)} win ${fields.season_code || DEFAULT_SEASON_CODE}?`;
+    case 'season_player_runs':     return `Will ${p(fields.player_id)} score ${fields.threshold || 'N'}+ runs this season?`;
+    case 'season_player_wickets':  return `Will ${p(fields.player_id)} take ${fields.threshold || 'N'}+ wickets this season?`;
+    case 'custom_season':          return fields.custom_title || '...';
+
     case 'manual':            return fields.custom_title || '...';
     case 'player_match_stat': return `Will ${p(fields.player_id)} take a wicket today?`;
     default: return '...';
@@ -168,6 +195,12 @@ function buildConditionJson(type, fields, teams, players) {
     case 'toss_winner':   return { type, team: tS(fields.team_id) };
     case 'custom_match':  return { type, team: tS(fields.team_id), player: pN(fields.player_id), innings: fields.innings_number || null };
 
+    case 'season_team_finish':     return { type, team: tS(fields.team_id), season: fields.season_code || DEFAULT_SEASON_CODE, threshold_position: +fields.threshold_position || null };
+    case 'season_team_wins_title': return { type, team: tS(fields.team_id), season: fields.season_code || DEFAULT_SEASON_CODE };
+    case 'season_player_runs':     return { type, player: pN(fields.player_id), season: fields.season_code || DEFAULT_SEASON_CODE, threshold: +fields.threshold || null };
+    case 'season_player_wickets':  return { type, player: pN(fields.player_id), season: fields.season_code || DEFAULT_SEASON_CODE, threshold: +fields.threshold || null };
+    case 'custom_season':          return { type, team: tS(fields.team_id), player: pN(fields.player_id), season: fields.season_code || DEFAULT_SEASON_CODE };
+
     case 'manual':            return null;
     case 'player_match_stat': return { type, player: pN(fields.player_id), stat_kind: fields.stat_kind || 'wicket' };
     default: return null;
@@ -201,6 +234,12 @@ function requiredFields(type) {
     case 'innings_score':  return ['team_id', 'innings_number', 'operator', 'threshold'];
     case 'toss_winner':    return ['team_id'];
     case 'custom_match':   return ['custom_title'];
+
+    case 'season_team_finish':     return ['team_id', 'threshold_position'];
+    case 'season_team_wins_title': return ['team_id'];
+    case 'season_player_runs':     return ['player_id', 'threshold'];
+    case 'season_player_wickets':  return ['player_id', 'threshold'];
+    case 'custom_season':          return ['custom_title'];
 
     case 'manual':            return ['custom_title'];
     case 'player_match_stat': return ['player_id'];
@@ -271,6 +310,7 @@ function PhaseGlyph({ phase }) {
   if (phase === 'powerplay') return <div className={cls} style={{ background: '#1a1a2e' }}><span className="text-[7px] font-bold" style={{ color: '#fbbf24' }}>POWER</span><span className="text-[10px] font-black leading-none mt-0.5">PLAY</span></div>;
   if (phase === 'death')     return <div className={cls} style={{ background: '#1a1a2e' }}><span className="text-[7px] font-bold" style={{ color: '#ef5350' }}>DEATH</span><span className="text-[10px] font-black leading-none mt-0.5">OVERS</span></div>;
   if (phase === 'match')     return <div className={cls} style={{ background: '#16213e' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><span className="text-[8px] font-bold mt-0.5">MATCH</span></div>;
+  if (phase === 'season')    return <div className={cls} style={{ background: '#0f3460' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" style={{ color: '#fcd34d' }}><path d="M6 3h12v4a6 6 0 0 1-12 0V3z"/><path d="M6 5H3a2 2 0 0 0 2 3h1M18 5h3a2 2 0 0 1-2 3h-1"/><path d="M9 14h6M12 14v4M8 21h8"/></svg><span className="text-[8px] font-black mt-0.5">IPL26</span></div>;
   return null;
 }
 
@@ -519,11 +559,13 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
       over: editing.over_number || cond.over || cond.by_over || '',
       operator: cond.operator || '>=',
       threshold: cond.threshold || '',
+      threshold_position: cond.threshold_position || '',
       milestone: cond.milestone || '',
       min_wickets: cond.min_wickets || 1,
       boundary_type: cond.boundary_type || 'six',
       boundary_count: cond.boundary_count || 1,
       innings_number: editing.innings_number || cond.innings || '',
+      season_code: editing.season_code || cond.season || DEFAULT_SEASON_CODE,
       // Match Custom: reconstruct badge picker state from innings_number,
       // and subject toggle from whichever id is set.
       match_badge: editing.innings_number === 1 ? '1st' : editing.innings_number === 2 ? '2nd' : 'match',
@@ -541,7 +583,9 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
     setPhase(p);
     if (TYPES_BY_PHASE[p].length === 1) setType(TYPES_BY_PHASE[p][0].id);
     else setType(null);
-    setFields({ min_wickets: 1, boundary_count: 1, boundary_type: 'six', operator: '>=', match_badge: 'match', match_subject: 'team' });
+    setFields({ min_wickets: 1, boundary_count: 1, boundary_type: 'six', operator: '>=', match_badge: 'match', match_subject: 'team', season_code: DEFAULT_SEASON_CODE });
+    // Season bets always resolve manually — CricAPI polling can't settle them.
+    if (p === 'season') setResolveMode('manual');
     setError('');
   }
   function selectType(t) {
@@ -595,6 +639,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
       subject_kind: overrideSubject,
       over_number: TYPES_WITH_OVER.has(type) ? +fields.over || null : null,
       innings_number: effectiveInningsNumber(type, fields),
+      season_code: phase === 'season' ? (fields.season_code || DEFAULT_SEASON_CODE) : null,
       title: type ? buildTitle(type, fields, teams, playersList) : '...',
       team,
       opponent,
@@ -642,10 +687,11 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
         subject_kind,
         team_id: fields.team_id || null,
         opponent_team_id: fields.opponent_team_id || null,
-        player_id: (subject_kind === 'player' || type === 'batsman_milestone' || type === 'bowler_wickets_by_over') ? (fields.player_id || null) : null,
+        player_id: (subject_kind === 'player' || type === 'batsman_milestone' || type === 'bowler_wickets_by_over' || type === 'season_player_runs' || type === 'season_player_wickets') ? (fields.player_id || null) : null,
         over_number,
         innings_number,
-        resolve_mode: resolveMode,
+        season_code: phase === 'season' ? (fields.season_code || DEFAULT_SEASON_CODE) : null,
+        resolve_mode: phase === 'season' ? 'manual' : resolveMode,
         status: publishStatus,
       };
       const url    = editing?.id ? `/api/contracts/${editing.id}` : '/api/contracts';
@@ -819,17 +865,39 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
                     <NumInput label="Min count" min={1} value={fields.boundary_count || 1} onChange={v => setField('boundary_count', v)} />
                   </>
                 )}
+                {phase === 'season' && (
+                  <Select label="Season" value={fields.season_code || DEFAULT_SEASON_CODE} onChange={v => setField('season_code', v)}
+                          options={SEASON_CODES.map(c => ({ value: c, label: c }))} />
+                )}
+                {TYPES_WITH_SEASON_POSITION.has(type) && (
+                  <NumInput label="Top N finish" min={1} value={fields.threshold_position}
+                            onChange={v => setField('threshold_position', v)} hint="e.g. 4 for top 4" />
+                )}
+                {TYPES_WITH_SEASON_RUN_TOTAL.has(type) && (
+                  <NumInput label="Runs this season" min={1} value={fields.threshold}
+                            onChange={v => setField('threshold', v)} hint="e.g. 600" />
+                )}
+                {TYPES_WITH_SEASON_WKT_TOTAL.has(type) && (
+                  <NumInput label="Wickets this season" min={1} value={fields.threshold}
+                            onChange={v => setField('threshold', v)} hint="e.g. 20" />
+                )}
               </div>
 
               {/* Resolve mode */}
               <div>
                 <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">Resolve mode</p>
-                <div className="flex gap-3 text-sm">
-                  <label className="flex items-center gap-2"><input type="radio" name="rm" value="auto" checked={resolveMode === 'auto'} onChange={() => setResolveMode('auto')} /> Auto (CricAPI)</label>
-                  <label className="flex items-center gap-2"><input type="radio" name="rm" value="manual" checked={resolveMode === 'manual'} onChange={() => setResolveMode('manual')} /> Manual</label>
-                </div>
-                {isCustomType && (
-                  <p className="text-[10px] text-gray-400 mt-1">Custom contracts are manual-resolve only.</p>
+                {phase === 'season' ? (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Manual — CricAPI can't track league standings, so you settle these at season end.</p>
+                ) : (
+                  <>
+                    <div className="flex gap-3 text-sm">
+                      <label className="flex items-center gap-2"><input type="radio" name="rm" value="auto" checked={resolveMode === 'auto'} onChange={() => setResolveMode('auto')} /> Auto (CricAPI)</label>
+                      <label className="flex items-center gap-2"><input type="radio" name="rm" value="manual" checked={resolveMode === 'manual'} onChange={() => setResolveMode('manual')} /> Manual</label>
+                    </div>
+                    {isCustomType && (
+                      <p className="text-[10px] text-gray-400 mt-1">Custom contracts are manual-resolve only.</p>
+                    )}
+                  </>
                 )}
               </div>
 

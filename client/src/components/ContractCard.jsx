@@ -36,6 +36,12 @@ export const TYPE_META = {
   custom_powerplay:        'Custom · powerplay',
   custom_death:            'Custom · death overs',
   custom_match:            'Custom · match',
+  // season-long
+  season_team_finish:      'Season · team finish',
+  season_team_wins_title:  'Season · title winner',
+  season_player_runs:      'Season · player runs',
+  season_player_wickets:   'Season · player wickets',
+  custom_season:           'Custom · season',
 };
 
 function payout(stake, price) {
@@ -141,8 +147,14 @@ const CalSvg = () => (
   </svg>
 );
 
+const TrophySvg = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <path d="M6 3h12v4a6 6 0 0 1-12 0V3z"/><path d="M6 5H3a2 2 0 0 0 2 3h1M18 5h3a2 2 0 0 1-2 3h-1"/><path d="M9 14h6M12 14v4M8 21h8"/>
+  </svg>
+);
+
 export function ContextBadge({ contract }) {
-  const { phase, over_number, innings_number } = contract;
+  const { phase, over_number, innings_number, season_code } = contract;
 
   // Numeric over badges. Number falls back to "—" so the live preview shows
   // a real OVER badge while admin is still typing the number.
@@ -205,6 +217,16 @@ export function ContextBadge({ contract }) {
       <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white shrink-0" style={{ background: '#16213e' }}>
         <CalSvg />
         <span className="text-[11px] font-extrabold tracking-wide mt-1">MATCH</span>
+      </div>
+    );
+  }
+  // Season-long bets — runs the whole tournament, resolves manually at season end.
+  // Season code (e.g. "IPL26") shown big so users can tell different seasons apart.
+  if (phase === 'season') {
+    return (
+      <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white shrink-0" style={{ background: '#0f3460' }}>
+        <span style={{ color: '#fcd34d' }}><TrophySvg /></span>
+        <span className="text-[11px] font-black tracking-wide mt-0.5">{season_code || 'SEASON'}</span>
       </div>
     );
   }

@@ -109,8 +109,12 @@ const VALID_TYPES = [
   'innings_score',
   // per-phase custom
   'custom_over', 'custom_by_over', 'custom_powerplay', 'custom_death', 'custom_match',
+  // season-long (phase='season') — resolve manually at season end
+  'season_team_finish', 'season_team_wins_title',
+  'season_player_runs', 'season_player_wickets',
+  'custom_season',
 ];
-const VALID_PHASES  = ['over', 'by_over', 'powerplay', 'death', 'toss', 'match'];
+const VALID_PHASES  = ['over', 'by_over', 'powerplay', 'death', 'toss', 'match', 'season'];
 const VALID_SUBJECTS = ['team', 'player', 'matchup', 'match_generic'];
 
 // Validate an FK without blowing up if the id is null/undefined.
@@ -122,7 +126,7 @@ function validFK(table, id) {
 // Create contract (admin only)
 router.post('/', requireAdmin, (req, res) => {
   const { title, type, condition_json, match_id, over_number, resolve_mode, status,
-          phase, subject_kind, team_id, opponent_team_id, player_id, innings_number } = req.body;
+          phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, season_code } = req.body;
   if (!title || !type) return res.status(400).json({ error: 'Title and type required' });
 
   if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid contract type' });
@@ -139,11 +143,12 @@ router.post('/', requireAdmin, (req, res) => {
   const cleanedCondition = sanitizeCondition(condition_json);
 
   const inningsNum = (innings_number === 1 || innings_number === 2) ? innings_number : null;
+  const seasonCode = phase === 'season' ? stripTags(String(season_code || '')).slice(0, 20) || null : null;
 
   const stmt = db.prepare(`
     INSERT INTO contracts (title, type, condition_json, match_id, over_number, resolve_mode, status,
-                           phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, season_code, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     cleanTitle,
@@ -159,6 +164,7 @@ router.post('/', requireAdmin, (req, res) => {
     opponent_team_id || null,
     player_id || null,
     inningsNum,
+    seasonCode,
     req.session.userId
   );
 
@@ -181,8 +187,8 @@ router.post('/', requireAdmin, (req, res) => {
 // Refuses to edit anything that isn't a draft so trading isn't pulled out
 // from under users.
 router.patch('/:id', requireAdmin, (req, res) => {
-  const { title, type, condition_json, resolve_mode, status,
-          phase, subject_kind, team_id, opponent_team_id, player_id, innings_number } = req.body;
+  const { title, type, condition_json, match_id, resolve_mode, status,
+          phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, season_code } = req.body;
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
   if (contract.status !== 'draft') {
@@ -203,16 +209,18 @@ router.patch('/:id', requireAdmin, (req, res) => {
   const nextStatus = (status === 'active' || status === 'draft') ? status : 'draft';
 
   const inningsNum = (innings_number === 1 || innings_number === 2) ? innings_number : null;
+  const seasonCode = phase === 'season' ? stripTags(String(season_code || '')).slice(0, 20) || null : null;
 
   db.prepare(`
     UPDATE contracts
-       SET title = ?, type = ?, condition_json = ?, resolve_mode = ?, status = ?,
-           phase = ?, subject_kind = ?, team_id = ?, opponent_team_id = ?, player_id = ?, innings_number = ?
+       SET title = ?, type = ?, condition_json = ?, match_id = ?, resolve_mode = ?, status = ?,
+           phase = ?, subject_kind = ?, team_id = ?, opponent_team_id = ?, player_id = ?, innings_number = ?, season_code = ?
      WHERE id = ?
   `).run(
     cleanTitle,
     type,
     cleanedCondition ? JSON.stringify(cleanedCondition) : null,
+    match_id || null,
     resolve_mode || 'manual',
     nextStatus,
     phase || null,
@@ -221,6 +229,7 @@ router.patch('/:id', requireAdmin, (req, res) => {
     opponent_team_id || null,
     player_id || null,
     inningsNum,
+    seasonCode,
     req.params.id,
   );
 

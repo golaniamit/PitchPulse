@@ -238,8 +238,10 @@ async function pollAndResolve() {
   cache.matchData  = matchData;
   cache.fetchedAt  = Date.now();
 
+  // Season-long contracts (phase='season') can't auto-resolve from CricAPI
+  // — they settle at season end via admin. Skip them regardless of resolve_mode.
   const contracts = db.prepare(
-    "SELECT * FROM contracts WHERE status = 'active' AND resolve_mode = 'auto' AND type != 'manual'"
+    "SELECT * FROM contracts WHERE status = 'active' AND resolve_mode = 'auto' AND type != 'manual' AND (phase IS NULL OR phase != 'season')"
   ).all();
 
   if (contracts.length === 0) {
