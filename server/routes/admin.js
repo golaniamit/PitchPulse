@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { requireAdmin } = require('../middleware');
 const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval } = require('../engine/resolver');
+const { listLiveMatches } = require('../engine/cricbuzz');
 const { getIntSetting, setSetting } = require('../settings');
 const db = require('../db');
 const ws = require('../websocket');
@@ -53,6 +54,21 @@ router.get('/matches', requireAdmin, async (req, res) => {
     res.json({ matches, credits_left: json.info?.credits_left });
   } catch (e) {
     res.status(502).json({ error: `Failed to reach CricAPI: ${e.message}` });
+  }
+});
+
+// Cricbuzz match list — powers the optional per-contract match picker in the admin
+// contract builder. Returns live / upcoming / recently-completed matches. This is
+// purely additive — if the picker UI gets removed, this endpoint has no callers
+// and can be deleted without touching anything else.
+router.get('/cricbuzz-matches', requireAdmin, async (req, res) => {
+  try {
+    const seriesFilter = req.query.series || null;
+    const matches = await listLiveMatches({ seriesFilter });
+    res.json({ matches });
+  } catch (e) {
+    console.error('[admin] cricbuzz-matches failed:', e.message);
+    res.status(502).json({ error: `Failed to fetch Cricbuzz: ${e.message}` });
   }
 });
 

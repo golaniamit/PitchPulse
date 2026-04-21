@@ -30,4 +30,6 @@ Thumbs.db
 
 # Misc
 cookies.txt
+prod_cookies.txt
 tmp_*.json
+.split-tmp/

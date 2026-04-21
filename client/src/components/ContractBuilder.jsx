@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { SubjectSlot, ContextBadge, TYPE_META } from './ContractCard';
+import MatchPicker from './MatchPicker';
 
 // ── Static maps ─────────────────────────────────────────────────────
 
@@ -532,6 +533,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
   const [submitting, setSubmitting]   = useState(false);
   const [error, setError]   = useState('');
   const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [matchId, setMatchId] = useState(null); // Cricbuzz numeric id; null = inherit global match
 
   useEffect(() => {
     fetch('/api/teams', { credentials: 'include' }).then(r => r.json()).then(d => setTeams(d.teams || []));
@@ -550,6 +552,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
     setPhase(editing.phase || null);
     setType(editing.type || null);
     setResolveMode(editing.resolve_mode || 'manual');
+    setMatchId(editing.match_id || null);
     let cond = {};
     try { cond = editing.condition_json ? JSON.parse(editing.condition_json) : {}; } catch (_) {}
     setFields({
@@ -577,6 +580,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
 
   function reset() {
     setPhase(null); setType(null); setFields({}); setResolveMode('manual'); setError('');
+    setMatchId(null);
   }
 
   function selectPhase(p) {
@@ -683,6 +687,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
         title,
         type,
         condition_json,
+        match_id: matchId || null,
         phase,
         subject_kind,
         team_id: fields.team_id || null,
@@ -725,6 +730,12 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
           </button>
         )}
       </div>
+
+      {/* Match picker — optional, removable. Hidden for season-long contracts
+          (they span many matches, so a single match_id doesn't apply). */}
+      {phase !== 'season' && (
+        <MatchPicker value={matchId} onChange={setMatchId} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <div className="lg:col-span-3 space-y-5">
