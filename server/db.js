@@ -184,6 +184,36 @@ try { db.exec(`ALTER TABLE contracts ADD COLUMN innings_number INTEGER`); } catc
 // keep season-long contracts from different years separate in future and
 // drives the season-badge label on the card.
 try { db.exec(`ALTER TABLE contracts ADD COLUMN season_code TEXT`); } catch (_) {}
+// Populated by the resolver on every evaluation of an active auto contract.
+// Null when result is known (contract about to settle) or contract is manual/
+// not yet polled. Admin UI surfaces this to explain why a contract is still
+// pending.
+try { db.exec(`ALTER TABLE contracts ADD COLUMN last_eval_reason TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE contracts ADD COLUMN last_eval_at DATETIME`); } catch (_) {}
+
+// Canonical iplt20.com player ID — used to match our players against the
+// official squad list and later download headshots from cricbuzz's image CDN.
+// Nullable while the column is being backfilled; uniqueness enforced via a
+// partial index so pre-backfill rows with NULL don't collide.
+try { db.exec(`ALTER TABLE players ADD COLUMN ipl_id INTEGER`); } catch (_) {}
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_players_ipl_id ON players(ipl_id) WHERE ipl_id IS NOT NULL`); } catch (_) {}
+
+// Persists the resolver's in-memory over-snapshot ledger. Cricbuzz's live
+// over-by-over page only exposes a rolling ~8-over window, so to resolve
+// phase contracts (powerplay, death) after the match has moved past the
+// phase we accumulate each over the resolver sees. Without persistence, a
+// server restart mid-match loses all history and those phase contracts can
+// pend forever. On boot, the resolver loads this table back into memory.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS over_ledger (
+    match_id   TEXT    NOT NULL,
+    innings_id INTEGER NOT NULL,
+    over_num   INTEGER NOT NULL,
+    raw_json   TEXT    NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (match_id, innings_id, over_num)
+  );
+`);
 
 // Grandfather only old accounts (no email = created before verification was added)
 // Never touch new registrations that are intentionally unverified
@@ -244,25 +274,48 @@ function slugify(name) {
   // DB (so existing contract.player_id references still resolve) but
   // become is_active=0 and drop out of the admin's player picker.
   const deactivateAll = db.prepare(`UPDATE players SET is_active = 0`);
-  const upPlayer = db.prepare(`
-    INSERT INTO players (name, slug, team_id, role, headshot_path, is_active)
-    VALUES (@name, @slug, @team_id, @role, @headshot_path, 1)
+  // Prefer ipl_id as the stable identity when present (seed entries carry it
+  // after the 2026 audit); fall back to slug-based upsert for legacy rows.
+  const findByIplId = db.prepare(`SELECT id FROM players WHERE ipl_id = ?`);
+  const upPlayerBySlug = db.prepare(`
+    INSERT INTO players (name, slug, team_id, role, headshot_path, ipl_id, is_active)
+    VALUES (@name, @slug, @team_id, @role, @headshot_path, @ipl_id, 1)
     ON CONFLICT(slug) DO UPDATE SET
       name = excluded.name,
       team_id = excluded.team_id,
       role = excluded.role,
       headshot_path = COALESCE(excluded.headshot_path, players.headshot_path),
+      ipl_id = COALESCE(excluded.ipl_id, players.ipl_id),
       is_active = 1
   `);
-  // Auto-detect downloaded headshots. If /players/{slug}.jpg exists
-  // on disk, use it — lets the fetch-headshots script populate images
+  // Keep existing slug — renames don't change the URL identifier. Updating
+  // name is fine, but changing slug could break any existing headshot_path
+  // that references /players/<slug>.png on disk.
+  const upPlayerByIplId = db.prepare(`
+    UPDATE players
+    SET name = @name,
+        team_id = @team_id,
+        role = @role,
+        headshot_path = COALESCE(@headshot_path, headshot_path),
+        is_active = 1
+    WHERE id = @id
+  `);
+
+  // Auto-detect downloaded headshots. If /players/{slug}.{jpg|png|webp}
+  // exists on disk, use it — lets the fetch-headshots script populate images
   // without editing the seed file.
   const PLAYERS_PUBLIC_DIR = path.join(__dirname, '..', 'client', 'public', 'players');
   function resolveHeadshot(p) {
     if (p.headshot_path) return p.headshot_path;
     const slug = slugify(p.name);
-    const file = path.join(PLAYERS_PUBLIC_DIR, slug + '.jpg');
-    return fs.existsSync(file) ? `/players/${slug}.jpg` : null;
+    // iplt20 headshots come as .png — prefer those over any old hand-placed
+    // .jpg files so the newer source wins on boot. If both exist, the .jpg
+    // should be considered an orphan.
+    for (const ext of ['png', 'webp', 'jpg', 'jpeg']) {
+      const file = path.join(PLAYERS_PUBLIC_DIR, `${slug}.${ext}`);
+      if (fs.existsSync(file)) return `/players/${slug}.${ext}`;
+    }
+    return null;
   }
 
   const insertPlayers = db.transaction(rows => {
@@ -270,13 +323,22 @@ function slugify(name) {
     for (const p of rows) {
       const team_id = teamIdByShort[p.team_short];
       if (!team_id) continue;
-      upPlayer.run({
+      const payload = {
         name: p.name,
         slug: slugify(p.name),
         team_id,
         role: p.role || null,
         headshot_path: resolveHeadshot(p),
-      });
+        ipl_id: p.ipl_id ?? null,
+      };
+      // If the seed row has an ipl_id and we already have a row with that
+      // ipl_id (possibly under a different slug after a rename), UPDATE that
+      // row by id rather than creating a duplicate.
+      if (payload.ipl_id != null) {
+        const existing = findByIplId.get(payload.ipl_id);
+        if (existing) { upPlayerByIplId.run({ ...payload, id: existing.id }); continue; }
+      }
+      upPlayerBySlug.run(payload);
     }
   });
   insertPlayers(playerSeed);

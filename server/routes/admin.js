@@ -2,7 +2,8 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { requireAdmin } = require('../middleware');
-const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval } = require('../engine/resolver');
+const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval, getHealth } = require('../engine/cricbuzz-resolver');
+const { listLiveMatches } = require('../engine/cricbuzz');
 const { getIntSetting, setSetting } = require('../settings');
 const db = require('../db');
 const ws = require('../websocket');
@@ -53,6 +54,149 @@ router.get('/matches', requireAdmin, async (req, res) => {
     res.json({ matches, credits_left: json.info?.credits_left });
   } catch (e) {
     res.status(502).json({ error: `Failed to reach CricAPI: ${e.message}` });
+  }
+});
+
+// Contract-suggestion helper for the builder. Takes a match_id + contract type
+// (plus over/by_over/etc. params as query strings) and returns a recommended
+// threshold alongside a one-line explanation the UI renders as a hint. Uses the
+// same Cricbuzz data the resolver does — current innings totals, recent overs,
+// live batsman stats — projected forward by run-rate for by-over types.
+router.get('/contract-suggestion', requireAdmin, async (req, res) => {
+  const { match_id, type, team, over, by_over, batsman } = req.query;
+  if (!match_id) return res.status(400).json({ error: 'match_id required' });
+  if (!type)     return res.status(400).json({ error: 'type required' });
+
+  try {
+    const { fetchMatch, fetchOverByOver, findInningsForTeam, oversAsFraction, parseOverSummary } = require('../engine/cricbuzz');
+    const match = await fetchMatch(match_id);
+    const innings = team ? findInningsForTeam(match, team) : match.innings[match.innings.length - 1];
+
+    // Helper — project the score the batting team would have by a given over,
+    // using their current run rate as the extrapolation baseline.
+    function projectScoreBy(overNum) {
+      if (!innings) return null;
+      const playedFrac = oversAsFraction(innings.overs);
+      if (playedFrac >= overNum) return innings.score; // already past target
+      const rr = playedFrac > 0 ? innings.score / playedFrac : 8;
+      return Math.round(innings.score + rr * (overNum - playedFrac));
+    }
+
+    // Average runs scored per over over the recent window (last 3 if we have them).
+    async function recentOverRunRate() {
+      try {
+        const obo = await fetchOverByOver(match_id);
+        const lastFew = (obo.overs || [])
+          .filter(o => innings && o.inningsId === innings.inningsId)
+          .sort((a, b) => b.overs - a.overs)
+          .slice(0, 3);
+        if (lastFew.length === 0) return null;
+        return lastFew.reduce((a, o) => a + (o.runs || 0), 0) / lastFew.length;
+      } catch { return null; }
+    }
+
+    // Dispatch per contract type.
+    const t = String(type);
+
+    if (t === 'runs_over') {
+      const avg = await recentOverRunRate();
+      if (avg == null) return res.json({ threshold: 8, note: 'No recent overs — default 8' });
+      const rounded = Math.max(1, Math.round(avg));
+      return res.json({
+        threshold: rounded,
+        note: `Recent overs avg ${avg.toFixed(1)} runs — ~50/50 at ${rounded}`,
+      });
+    }
+
+    if (t === 'team_total') {
+      const tgt = parseInt(by_over);
+      if (!tgt) return res.json({ threshold: null, note: 'Pick an over first' });
+      const proj = projectScoreBy(tgt);
+      if (proj == null) return res.json({ threshold: null, note: 'No innings data yet' });
+      const playedFrac = innings ? oversAsFraction(innings.overs) : 0;
+      return res.json({
+        threshold: proj,
+        note: `${innings?.batTeamName} at ${innings?.score}/${innings?.wickets} in ${playedFrac.toFixed(1)} ov — projected ~${proj} by over ${tgt}`,
+      });
+    }
+
+    if (t === 'innings_score') {
+      if (!innings) return res.json({ threshold: null, note: 'Innings not started' });
+      const proj = projectScoreBy(match.format === 'T20' ? 20 : 50);
+      return res.json({
+        threshold: proj,
+        note: `${innings.batTeamName} at ${innings.score}/${innings.wickets} — projected final ~${proj}`,
+      });
+    }
+
+    if (t === 'runs_powerplay' || t === 'runs_death') {
+      const range = t === 'runs_powerplay' ? { start: 1, end: 6 } : { start: 16, end: 20 };
+      try {
+        const obo = await fetchOverByOver(match_id);
+        const inRange = (obo.overs || []).filter(o =>
+          innings && o.inningsId === innings.inningsId &&
+          Math.round(o.overs) >= range.start && Math.round(o.overs) <= range.end
+        );
+        const runs = inRange.reduce((a, o) => a + (o.runs || 0), 0);
+        const coveredCount = inRange.length;
+        const windowSize = range.end - range.start + 1;
+        if (coveredCount === windowSize) return res.json({ threshold: runs, note: `Already scored: ${runs}` });
+        const avgPerOver = coveredCount > 0 ? runs / coveredCount : (await recentOverRunRate()) || 8;
+        const projected = Math.round(runs + avgPerOver * (windowSize - coveredCount));
+        return res.json({
+          threshold: projected,
+          note: coveredCount > 0
+            ? `So far ${runs} in ${coveredCount} of ${windowSize} overs — projected ~${projected}`
+            : `Not started yet — projected ~${projected} based on current rate`,
+        });
+      } catch { return res.json({ threshold: null, note: 'Data unavailable' }); }
+    }
+
+    if (t === 'wicket_over' || t === 'team_wickets_by_over' || t === 'wickets_powerplay' || t === 'wickets_death' || t === 'boundary_over' || t === 'boundaries_powerplay' || t === 'boundaries_death') {
+      return res.json({ threshold: 1, note: 'Default 1 — lower counts are more common than higher in T20' });
+    }
+
+    if (t === 'batsman_milestone') {
+      const ovTarget = parseInt(over) || (match.format === 'T20' ? 20 : 50);
+      const c = match.current;
+      let currentRuns = null, name = null;
+      for (const b of [c?.batsmanStriker, c?.batsmanNonStriker]) {
+        if (b?.name && String(batsman || '').toLowerCase() && b.name.toLowerCase().includes(String(batsman || '').toLowerCase())) {
+          currentRuns = b.runs; name = b.name;
+        }
+      }
+      if (currentRuns == null) return res.json({ threshold: 30, note: 'Batsman not currently on strike — default 30' });
+      const playedFrac = innings ? oversAsFraction(innings.overs) : ovTarget;
+      const runsLeft = Math.max(0, ovTarget - playedFrac);
+      const proj = Math.round(currentRuns + runsLeft * 8); // ~8 rpo individual projection
+      return res.json({ threshold: proj, note: `${name} on ${currentRuns} — projected ~${proj} by over ${ovTarget}` });
+    }
+
+    return res.json({ threshold: null, note: 'No suggestion available for this type' });
+  } catch (e) {
+    console.error('[contract-suggestion] failed:', e.message);
+    return res.json({ threshold: null, note: `Data unavailable (${e.message})` });
+  }
+});
+
+// Resolver-health endpoint powering the small status dot in the admin UI. The
+// frontend translates `lastPollFinishedAt` age into green / amber / red.
+router.get('/resolver-health', requireAdmin, (req, res) => {
+  res.json(getHealth());
+});
+
+// Cricbuzz match list — powers the optional per-contract match picker in the admin
+// contract builder. Returns live / upcoming / recently-completed matches. This is
+// purely additive — if the picker UI gets removed, this endpoint has no callers
+// and can be deleted without touching anything else.
+router.get('/cricbuzz-matches', requireAdmin, async (req, res) => {
+  try {
+    const seriesFilter = req.query.series || null;
+    const matches = await listLiveMatches({ seriesFilter });
+    res.json({ matches });
+  } catch (e) {
+    console.error('[admin] cricbuzz-matches failed:', e.message);
+    res.status(502).json({ error: `Failed to fetch Cricbuzz: ${e.message}` });
   }
 });
 

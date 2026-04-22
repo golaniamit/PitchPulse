@@ -62,9 +62,30 @@ function enrichContract(c) {
   };
 }
 
-// List contracts (with filter). Non-admins only see active + resolved.
+// Archive windows (minutes) — how long after resolution a contract stays in the
+// default marketplace / admin feed. User-participated contracts get an
+// additional 24h pin regardless of phase.
+//
+// Marketplace (consumers): more aggressive, keeps the feed relevant to "what's
+// happening now." Admin: slightly longer, since admins audit outcomes.
+const ARCHIVE_WINDOW_MIN = {
+  marketplace: { over: 10,  by_over: 60,   powerplay: 60,   death: 60,   match: 120,    season: null },
+  admin:       { over: 20,  by_over: 120,  powerplay: 120,  death: 120,  match: 360,    season: null },
+};
+function cutoffForPhase(phase, audience) {
+  const m = ARCHIVE_WINDOW_MIN[audience]?.[phase];
+  if (m == null) return null;              // season → never archive
+  return Date.now() - m * 60_000;
+}
+
+// List contracts. Non-admins only see active + resolved. Resolved contracts are
+// filtered against phase-specific archive windows so the feed doesn't pile up.
+// A user's own participated contracts (any position ever held) are always
+// visible for 24h after resolution, even if the global window would hide them.
+// Pass ?includeArchived=1 to bypass filtering entirely (admin view toggle).
 router.get('/', requireAuth, (req, res) => {
   const { status } = req.query;
+  const includeArchived = req.query.includeArchived === '1' || req.query.includeArchived === 'true';
   const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
   const isAdmin = !!user?.is_admin;
 
@@ -76,7 +97,30 @@ router.get('/', requireAuth, (req, res) => {
   let query = 'SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id';
   if (where.length) query += ' WHERE ' + where.join(' AND ');
   query += ' ORDER BY c.created_at DESC';
-  const contracts = db.prepare(query).all(...params).map(enrichContract);
+  let contracts = db.prepare(query).all(...params).map(enrichContract);
+
+  // Phase-aware archive filter — resolved contracts older than their phase's
+  // window drop out of the feed, unless the caller overrides via
+  // ?includeArchived=1 or held a position in them.
+  if (!includeArchived) {
+    const audience = isAdmin ? 'admin' : 'marketplace';
+    const userParticipatedIds = new Set(db.prepare(
+      'SELECT DISTINCT contract_id FROM positions WHERE user_id = ?'
+    ).all(req.session.userId).map(r => r.contract_id));
+    const userPinCutoff = Date.now() - 24 * 60 * 60_000;
+
+    contracts = contracts.filter(c => {
+      if (c.status !== 'resolved') return true;               // always show active/etc.
+      const resolvedMs = c.resolved_at ? new Date(c.resolved_at + 'Z').getTime() : 0;
+      // User-participation pin takes priority: keep any contract this user
+      // held a position in that was resolved within the last 24h.
+      if (userParticipatedIds.has(c.id) && resolvedMs > userPinCutoff) return true;
+      const cutoff = cutoffForPhase(c.phase, audience);
+      if (cutoff == null) return true;                         // never-archive phase (season)
+      return resolvedMs > cutoff;
+    });
+  }
+
   res.json({ contracts });
 });
 
@@ -288,6 +332,49 @@ router.post('/:id/resolve', requireAdmin, (req, res) => {
 
   const updated = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
   res.json({ contract: updated });
+});
+
+// Undo a just-settled contract — reverses winner payouts and flips the
+// contract back to `active`. Admin-only, and only available for 60 seconds
+// after resolution. After that, the audit trail is too far gone and the
+// undo is no longer offered. Resolver re-evaluates the contract on its
+// next poll, so if the answer was correct it'll settle again the same way.
+// If Cricbuzz now reports a different state, the contract will settle
+// differently. This is the intended safety net against resolver bugs or
+// Cricbuzz data glitches.
+const UNDO_WINDOW_MS = 60_000;
+router.post('/:id/undo-settle', requireAdmin, (req, res) => {
+  const contractId = parseInt(req.params.id);
+  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId);
+  if (!contract) return res.status(404).json({ error: 'Contract not found' });
+  if (contract.status !== 'resolved' || !contract.resolved_at) {
+    return res.status(400).json({ error: 'Contract is not resolved' });
+  }
+  const ageMs = Date.now() - new Date(contract.resolved_at + 'Z').getTime();
+  if (ageMs > UNDO_WINDOW_MS) {
+    return res.status(400).json({ error: `Undo window closed (${Math.round(ageMs/1000)}s old)` });
+  }
+
+  // Reverse winner payouts — same formula settleContract used (qty * 100).
+  const positions = db.prepare('SELECT * FROM positions WHERE contract_id = ?').all(contractId);
+  for (const pos of positions) {
+    if (pos.side === contract.resolution) {
+      const payout = pos.quantity * 100;
+      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(payout, pos.user_id);
+      const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(pos.user_id).balance;
+      broadcast({ type: 'balance_update', userId: pos.user_id, newBalance });
+    }
+  }
+
+  // Flip back to active, clear resolution, clear last-eval reason so the next
+  // poll surfaces a fresh verdict. Cancelled orders from settlement stay
+  // cancelled — users can place new ones if they want.
+  db.prepare("UPDATE contracts SET status = 'active', resolution = NULL, resolved_at = NULL, last_eval_reason = NULL, last_eval_at = NULL WHERE id = ?").run(contractId);
+
+  const updated = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(contractId);
+  broadcast({ type: 'contract_updated', contract: enrichContract(updated) });
+  console.log(`[contract ${contractId}] Undo settle — was ${contract.resolution}, reversed ${positions.filter(p => p.side === contract.resolution).length} payouts`);
+  res.json({ ok: true, contract: enrichContract(updated) });
 });
 
 // Price history for a contract

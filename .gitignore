@@ -30,4 +30,24 @@ Thumbs.db
 
 # Misc
 cookies.txt
+prod_cookies.txt
 tmp_*.json
+.split-tmp/
+CLAUDE.local.md
+
+# Worktree / dev-only (added during cricbuzz branch)
+.claude/
+mockups/
+/tmp/
+/server/scripts/probe-*.js
+/server/scripts/pop-fetch-headshot.js
+/server/scripts/create-test-contracts.js
+/server/scripts/check-test-contracts.js
+/server/scripts/seed-test-contracts.js
+/server/scripts/test-cricbuzz-resolver.js
+/server/scripts/test-suggestion.js
+/server/scripts/ipl-2026-matchids.json
+/server/scripts/audit-report.json
+/server/scripts/canonical-squads.json
+/server/seeds/players.js.bak-*
+market.db.bak-*

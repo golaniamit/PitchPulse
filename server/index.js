@@ -9,7 +9,7 @@ const path = require('path');
 const db = require('./db');
 const ws = require('./websocket');
 const { startBots } = require('./engine/bots');
-const { startResolver } = require('./engine/resolver');
+const { startResolver } = require('./engine/cricbuzz-resolver');
 
 const authRoutes = require('./routes/auth');
 const contractRoutes = require('./routes/contracts');
@@ -54,6 +54,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/matches', require('./routes/matches'));
 app.use('/api/players', playerRoutes);
 
 // Health check

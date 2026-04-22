@@ -1,0 +1,1835 @@
+{
+  "fetchedAt": "2026-04-22T12:55:21.508Z",
+  "teams": {
+    "CSK": {
+      "teamShort": "CSK",
+      "teamSlug": "chennai-super-kings",
+      "captain": "Ruturaj Gaikwad",
+      "coach": "Stephen Fleming",
+      "players": [
+        {
+          "iplId": "5443",
+          "slug": "ruturaj-gaikwad",
+          "name": "Ruturaj Gaikwad",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1",
+          "slug": "ms-dhoni",
+          "name": "MS Dhoni",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "258",
+          "slug": "sanju-samson",
+          "name": "Sanju Samson",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20593",
+          "slug": "dewald-brevis",
+          "name": "Dewald Brevis",
+          "role": "Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "22377",
+          "slug": "ayush-mhatre",
+          "name": "Ayush Mhatre",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23012",
+          "slug": "kartik-sharma",
+          "name": "Kartik Sharma",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1564",
+          "slug": "sarfaraz-khan",
+          "name": "Sarfaraz Khan",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5653",
+          "slug": "urvil-patel",
+          "name": "Urvil Patel",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22109",
+          "slug": "jamie-overton",
+          "name": "Jamie Overton",
+          "role": "All Rounder",
+          "nationality": "English"
+        },
+        {
+          "iplId": "22153",
+          "slug": "ramakrishna-ghosh",
+          "name": "Ramakrishna Ghosh",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23008",
+          "slug": "prashant-veer",
+          "name": "Prashant Veer",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "2032",
+          "slug": "matthew-william-short",
+          "name": "Matthew William Short",
+          "role": "Batter",
+          "nationality": "Australia"
+        },
+        {
+          "iplId": "20581",
+          "slug": "aman-khan",
+          "name": "Aman Khan",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23022",
+          "slug": "zak-foulkes",
+          "name": "Zak Foulkes",
+          "role": "All-Rounder",
+          "nationality": "Overseas"
+        },
+        {
+          "iplId": "5431",
+          "slug": "shivam-dube",
+          "name": "Shivam Dube",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "2964",
+          "slug": "khaleel-ahmed",
+          "name": "Khaleel Ahmed",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20590",
+          "slug": "noor-ahmad",
+          "name": "Noor Ahmad",
+          "role": "Bowler",
+          "nationality": "Afghan"
+        },
+        {
+          "iplId": "20702",
+          "slug": "anshul-kamboj",
+          "name": "Anshul Kamboj",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20575",
+          "slug": "mukesh-choudhary",
+          "name": "Mukesh Choudhary",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20696",
+          "slug": "shreyas-gopal",
+          "name": "Shreyas Gopal",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22032",
+          "slug": "gurjapneet-singh",
+          "name": "Gurjapneet Singh",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5608",
+          "slug": "akeal-hosein",
+          "name": "Akeal Hosein",
+          "role": "Bowler",
+          "nationality": "West Indies"
+        },
+        {
+          "iplId": "1505",
+          "slug": "matt-henry",
+          "name": "Matt Henry",
+          "role": "Bowler",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "3763",
+          "slug": "rahul-chahar",
+          "name": "Rahul Chahar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20699",
+          "slug": "spencer-johnson",
+          "name": "Spencer Johnson",
+          "role": "Bowler",
+          "nationality": "Australian"
+        }
+      ]
+    },
+    "DC": {
+      "teamShort": "DC",
+      "teamSlug": "delhi-capitals",
+      "captain": "Axar Patel",
+      "coach": "Hemang Badani",
+      "players": [
+        {
+          "iplId": "1125",
+          "slug": "kl-rahul",
+          "name": "KL Rahul",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "276",
+          "slug": "karun-nair",
+          "name": "Karun Nair",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "187",
+          "slug": "david-miller",
+          "name": "David Miller",
+          "role": "Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "23001",
+          "slug": "ben-duckett",
+          "name": "Ben Duckett",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Overseas"
+        },
+        {
+          "iplId": "23020",
+          "slug": "pathum-nissanka",
+          "name": "Pathum Nissanka",
+          "role": "Batter",
+          "nationality": "Overseas"
+        },
+        {
+          "iplId": "23063",
+          "slug": "sahil-parakh",
+          "name": "Sahil Parakh",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3764",
+          "slug": "prithvi-shaw",
+          "name": "Prithvi Shaw",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "33333",
+          "slug": "abishek-porel",
+          "name": "Abishek Porel",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20631",
+          "slug": "tristan-stubbs",
+          "name": "Tristan Stubbs",
+          "role": "Wicketkeeper Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "1113",
+          "slug": "axar-patel",
+          "name": "Axar Patel",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20689",
+          "slug": "sameer-rizvi",
+          "name": "Sameer Rizvi",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20703",
+          "slug": "ashutosh-sharma",
+          "name": "Ashutosh Sharma",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22053",
+          "slug": "vipraj-nigam",
+          "name": "Vipraj Nigam",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5811",
+          "slug": "ajay-mandal",
+          "name": "Ajay Mandal",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22252",
+          "slug": "tripurana-vijay",
+          "name": "Tripurana Vijay",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22259",
+          "slug": "madhav-tiwari",
+          "name": "Madhav Tiwari",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "2738",
+          "slug": "nitish-rana",
+          "name": "Nitish Rana",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "490",
+          "slug": "mitchell-starc",
+          "name": "Mitchell Starc",
+          "role": "Bowler",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "3831",
+          "slug": "t-natarajan",
+          "name": "T. Natarajan",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5622",
+          "slug": "mukesh-kumar",
+          "name": "Mukesh Kumar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "817",
+          "slug": "dushmantha-chameera",
+          "name": "Dushmantha Chameera",
+          "role": "Bowler",
+          "nationality": "Sri Lankan"
+        },
+        {
+          "iplId": "23005",
+          "slug": "auqib-nabi",
+          "name": "Auqib Nabi",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3746",
+          "slug": "lungisani-ngidi",
+          "name": "Lungisani Ngidi",
+          "role": "Bowler",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "1616",
+          "slug": "kyle-jamieson",
+          "name": "Kyle Jamieson",
+          "role": "Bowler",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "261",
+          "slug": "kuldeep-yadav",
+          "name": "Kuldeep Yadav",
+          "role": "Bowler",
+          "nationality": "Indian"
+        }
+      ]
+    },
+    "GT": {
+      "teamShort": "GT",
+      "teamSlug": "gujarat-titans",
+      "captain": "Shubman Gill",
+      "coach": "Ashish Nehra",
+      "players": [
+        {
+          "iplId": "3761",
+          "slug": "shubman-gill",
+          "name": "Shubman Gill",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "509",
+          "slug": "jos-buttler",
+          "name": "Jos Buttler",
+          "role": "Wicketkeeper Batter",
+          "nationality": "English"
+        },
+        {
+          "iplId": "20694",
+          "slug": "kumar-kushagra",
+          "name": "Kumar Kushagra",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "10788",
+          "slug": "anuj-rawat",
+          "name": "Anuj Rawat",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "33339",
+          "slug": "connor-esterhuizen",
+          "name": "Connor Esterhuizen",
+          "role": "BATTER",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "3027",
+          "slug": "glenn-phillips",
+          "name": "Glenn Phillips",
+          "role": "Batter",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "20592",
+          "slug": "sai-sudharsan",
+          "name": "Sai Sudharsan",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5615",
+          "slug": "nishant-sindhu",
+          "name": "Nishant Sindhu",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "2973",
+          "slug": "washington-sundar",
+          "name": "Washington Sundar",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20599",
+          "slug": "mohd-arshad-khan",
+          "name": "Mohd. Arshad Khan",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "7123",
+          "slug": "sai-kishore",
+          "name": "Sai Kishore",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1740",
+          "slug": "jayant-yadav",
+          "name": "Jayant Yadav",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1075",
+          "slug": "jason-holder",
+          "name": "Jason Holder",
+          "role": "All Rounder",
+          "nationality": "West Indian"
+        },
+        {
+          "iplId": "1749",
+          "slug": "rahul-tewatia",
+          "name": "Rahul Tewatia",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "7779",
+          "slug": "shahrukh-khan",
+          "name": "Shahrukh Khan",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1664",
+          "slug": "kagiso-rabada",
+          "name": "Kagiso Rabada",
+          "role": "Bowler",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "3840",
+          "slug": "mohammed-siraj",
+          "name": "Mohammed Siraj",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5105",
+          "slug": "prasidh-krishna",
+          "name": "Prasidh Krishna",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20692",
+          "slug": "manav-suthar",
+          "name": "Manav Suthar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1094",
+          "slug": "gurnoor-singh-brar",
+          "name": "Gurnoor Singh Brar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "38",
+          "slug": "ishant-sharma",
+          "name": "Ishant Sharma",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20584",
+          "slug": "ashok-sharma",
+          "name": "Ashok Sharma",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20721",
+          "slug": "luke-wood",
+          "name": "Luke Wood",
+          "role": "Bowler",
+          "nationality": "England"
+        },
+        {
+          "iplId": "3835",
+          "slug": "kulwant-khejroliya",
+          "name": "Kulwant Khejroliya",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "2885",
+          "slug": "rashid-khan",
+          "name": "Rashid Khan",
+          "role": "Bowler",
+          "nationality": "Afghan"
+        }
+      ]
+    },
+    "KKR": {
+      "teamShort": "KKR",
+      "teamSlug": "kolkata-knight-riders",
+      "captain": "Ajinkya Rahane",
+      "coach": "Abhishek Nayar",
+      "players": [
+        {
+          "iplId": "135",
+          "slug": "ajinkya-rahane",
+          "name": "Ajinkya Rahane",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3830",
+          "slug": "rinku-singh",
+          "name": "Rinku Singh",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20690",
+          "slug": "angkrish-raghuvanshi",
+          "name": "Angkrish Raghuvanshi",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "123",
+          "slug": "manish-pandey",
+          "name": "Manish Pandey",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3020",
+          "slug": "finn-allen",
+          "name": "Finn Allen",
+          "role": "Wicketkeeper Batter",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "23013",
+          "slug": "tejasvi-singh",
+          "name": "Tejasvi Singh",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3838",
+          "slug": "rahul-tripathi",
+          "name": "Rahul Tripathi",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1619",
+          "slug": "tim-seifert",
+          "name": "Tim Seifert",
+          "role": "Wicketkeeper Batter",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "3333",
+          "slug": "rovman-powell",
+          "name": "Rovman Powell",
+          "role": "Batter",
+          "nationality": "West Indian"
+        },
+        {
+          "iplId": "3774",
+          "slug": "anukul-roy",
+          "name": "Anukul Roy",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5602",
+          "slug": "cameron-green",
+          "name": "Cameron Green",
+          "role": "All Rounder",
+          "nationality": "Australia"
+        },
+        {
+          "iplId": "23154",
+          "slug": "sarthak-ranjan",
+          "name": "Sarthak Ranjan",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23177",
+          "slug": "daksh-kamra",
+          "name": "Daksh Kamra",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20684",
+          "slug": "rachin-ravindra",
+          "name": "Rachin Ravindra",
+          "role": "All Rounder",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "20595",
+          "slug": "ramandeep-singh",
+          "name": "Ramandeep Singh",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "203",
+          "slug": "sunil-narine",
+          "name": "Sunil Narine",
+          "role": "All Rounder",
+          "nationality": "West Indian"
+        },
+        {
+          "iplId": "22387",
+          "slug": "blessing-muzarabani",
+          "name": "Blessing Muzarabani",
+          "role": "Bowler",
+          "nationality": "Zimbabwean"
+        },
+        {
+          "iplId": "14859",
+          "slug": "vaibhav-arora",
+          "name": "Vaibhav Arora",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20627",
+          "slug": "matheesha-pathirana",
+          "name": "Matheesha Pathirana",
+          "role": "Bowler",
+          "nationality": "Sri Lankan"
+        },
+        {
+          "iplId": "10059",
+          "slug": "kartik-tyagi",
+          "name": "Kartik Tyagi",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20576",
+          "slug": "prashant-solanki",
+          "name": "Prashant Solanki",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20612",
+          "slug": "saurabh-dubey",
+          "name": "Saurabh Dubey",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3824",
+          "slug": "navdeep-saini",
+          "name": "Navdeep Saini",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "15154",
+          "slug": "umran-malik",
+          "name": "Umran Malik",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5432",
+          "slug": "varun-chakaravarthy",
+          "name": "Varun Chakaravarthy",
+          "role": "Bowler",
+          "nationality": "Indian"
+        }
+      ]
+    },
+    "LSG": {
+      "teamShort": "LSG",
+      "teamSlug": "lucknow-super-giants",
+      "captain": "Rishabh Pant",
+      "coach": "Justin Langer",
+      "players": [
+        {
+          "iplId": "2972",
+          "slug": "rishabh-pant",
+          "name": "Rishabh Pant",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1667",
+          "slug": "aiden-markram",
+          "name": "Aiden Markram",
+          "role": "Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "5434",
+          "slug": "himmat-singh",
+          "name": "Himmat Singh",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22375",
+          "slug": "matthew-breetzke",
+          "name": "Matthew Breetzke",
+          "role": "Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "23010",
+          "slug": "mukul-choudhary",
+          "name": "Mukul Choudhary",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23035",
+          "slug": "akshat-raghuwanshi",
+          "name": "Akshat Raghuwanshi",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22372",
+          "slug": "josh-inglis",
+          "name": "Josh Inglis",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "1703",
+          "slug": "nicholas-pooran",
+          "name": "Nicholas Pooran",
+          "role": "Wicketkeeper Batter",
+          "nationality": "West Indian"
+        },
+        {
+          "iplId": "221",
+          "slug": "mitchell-marsh",
+          "name": "Mitchell Marsh",
+          "role": "All Rounder",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "19352",
+          "slug": "abdul-samad",
+          "name": "Abdul Samad",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "13803",
+          "slug": "shahbaz-ahamad",
+          "name": "Shahbaz Ahamad",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20691",
+          "slug": "arshin-kulkarni",
+          "name": "Arshin Kulkarni",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20586",
+          "slug": "ayush-badoni",
+          "name": "Ayush Badoni",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "94",
+          "slug": "mohammad-shami",
+          "name": "Mohammad Shami",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1561",
+          "slug": "avesh-khan",
+          "name": "Avesh Khan",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "7119",
+          "slug": "m-siddharth",
+          "name": "M. Siddharth",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5847",
+          "slug": "digvesh-singh",
+          "name": "Digvesh Singh",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "12585",
+          "slug": "akash-singh",
+          "name": "Akash Singh",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22097",
+          "slug": "prince-yadav",
+          "name": "Prince Yadav",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "10244",
+          "slug": "arjun-tendulkar",
+          "name": "Arjun Tendulkar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5433",
+          "slug": "anrich-nortje",
+          "name": "Anrich Nortje",
+          "role": "Bowler",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "23015",
+          "slug": "naman-tiwari",
+          "name": "Naman Tiwari",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "33336",
+          "slug": "george-linde",
+          "name": "George Linde",
+          "role": "All Rounder",
+          "nationality": "South Africa"
+        },
+        {
+          "iplId": "20585",
+          "slug": "mayank-yadav",
+          "name": "Mayank Yadav",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "4952",
+          "slug": "mohsin-khan",
+          "name": "Mohsin Khan",
+          "role": "Bowler",
+          "nationality": "Indian"
+        }
+      ]
+    },
+    "MI": {
+      "teamShort": "MI",
+      "teamSlug": "mumbai-indians",
+      "captain": "Hardik Pandya",
+      "coach": "Mahela Jayawardene",
+      "players": [
+        {
+          "iplId": "107",
+          "slug": "rohit-sharma",
+          "name": "Rohit Sharma",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "108",
+          "slug": "surya-kumar-yadav",
+          "name": "Surya Kumar Yadav",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20707",
+          "slug": "robin-minz",
+          "name": "Robin Minz",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5396",
+          "slug": "sherfane-rutherford",
+          "name": "Sherfane Rutherford",
+          "role": "Batter",
+          "nationality": "West Indian"
+        },
+        {
+          "iplId": "22003",
+          "slug": "ryan-rickelton",
+          "name": "Ryan Rickelton",
+          "role": "Wicketkeeper Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "834",
+          "slug": "quinton-de-kock",
+          "name": "Quinton de Kock",
+          "role": "Wicketkeeper Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "23031",
+          "slug": "danish-malewar",
+          "name": "Danish Malewar",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20594",
+          "slug": "n-tilak-varma",
+          "name": "N. Tilak Varma",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "2740",
+          "slug": "hardik-pandya",
+          "name": "Hardik Pandya",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20701",
+          "slug": "naman-dhir",
+          "name": "Naman Dhir",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1903",
+          "slug": "mitchell-santner",
+          "name": "Mitchell Santner",
+          "role": "All Rounder",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "20601",
+          "slug": "raj-angad-bawa",
+          "name": "Raj Angad Bawa",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23038",
+          "slug": "mayank-rawat",
+          "name": "Mayank Rawat",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "33338",
+          "slug": "krish-bhagat",
+          "name": "Krish Bhagat",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20680",
+          "slug": "corbin-bosch",
+          "name": "Corbin Bosch",
+          "role": "All Rounder",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "5629",
+          "slug": "will-jacks",
+          "name": "Will Jacks",
+          "role": "All Rounder",
+          "nationality": "English"
+        },
+        {
+          "iplId": "1745",
+          "slug": "shardul-thakur",
+          "name": "Shardul Thakur",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "969",
+          "slug": "trent-boult",
+          "name": "Trent Boult",
+          "role": "Bowler",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "4951",
+          "slug": "mayank-markande",
+          "name": "Mayank Markande",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "140",
+          "slug": "deepak-chahar",
+          "name": "Deepak Chahar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22030",
+          "slug": "ashwani-kumar",
+          "name": "Ashwani Kumar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22379",
+          "slug": "raghu-sharma",
+          "name": "Raghu Sharma",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23045",
+          "slug": "mohammad-izhar",
+          "name": "Mohammad Izhar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20725",
+          "slug": "allah-ghazanfar",
+          "name": "Allah Ghazanfar",
+          "role": "Bowler",
+          "nationality": "Afghan"
+        },
+        {
+          "iplId": "1124",
+          "slug": "jasprit-bumrah",
+          "name": "Jasprit Bumrah",
+          "role": "Bowler",
+          "nationality": "Indian"
+        }
+      ]
+    },
+    "PBKS": {
+      "teamShort": "PBKS",
+      "teamSlug": "punjab-kings",
+      "captain": "Shreyas Iyer",
+      "coach": "Ricky Ponting",
+      "players": [
+        {
+          "iplId": "1563",
+          "slug": "shreyas-iyer",
+          "name": "Shreyas Iyer",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5859",
+          "slug": "nehal-wadhera",
+          "name": "Nehal Wadhera",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "4305",
+          "slug": "vishnu-vinod",
+          "name": "Vishnu Vinod",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22019",
+          "slug": "harnoor-pannu",
+          "name": "Harnoor Pannu",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22145",
+          "slug": "pyla-avinash",
+          "name": "Pyla Avinash",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5436",
+          "slug": "prabhsimran-singh",
+          "name": "Prabhsimran Singh",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3261",
+          "slug": "shashank-singh",
+          "name": "Shashank Singh",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "964",
+          "slug": "marcus-stoinis",
+          "name": "Marcus Stoinis",
+          "role": "All Rounder",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "5441",
+          "slug": "harpreet-brar",
+          "name": "Harpreet Brar",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "17068",
+          "slug": "marco-jansen",
+          "name": "Marco Jansen",
+          "role": "All Rounder",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "20685",
+          "slug": "azmatullah-omarzai",
+          "name": "Azmatullah Omarzai",
+          "role": "All Rounder",
+          "nationality": "Afghan"
+        },
+        {
+          "iplId": "22052",
+          "slug": "priyansh-arya",
+          "name": "Priyansh Arya",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22085",
+          "slug": "musheer-khan",
+          "name": "Musheer Khan",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20683",
+          "slug": "suryansh-shedge",
+          "name": "Suryansh Shedge",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22380",
+          "slug": "mitch-owen",
+          "name": "Mitch Owen",
+          "role": "All Rounder",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "23052",
+          "slug": "cooper-connolly",
+          "name": "Cooper Connolly",
+          "role": "All-Rounder",
+          "nationality": "Overseas"
+        },
+        {
+          "iplId": "1478",
+          "slug": "ben-dwarshuis",
+          "name": "Ben Dwarshuis",
+          "role": "Bowler",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "4698",
+          "slug": "arshdeep-singh",
+          "name": "Arshdeep Singh",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "111",
+          "slug": "yuzvendra-chahal",
+          "name": "Yuzvendra Chahal",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1097",
+          "slug": "vyshak-vijaykumar",
+          "name": "Vyshak Vijaykumar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5624",
+          "slug": "yash-thakur",
+          "name": "Yash Thakur",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22112",
+          "slug": "xavier-bartlett",
+          "name": "Xavier Bartlett",
+          "role": "Bowler",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "3188",
+          "slug": "pravin-dubey",
+          "name": "Pravin Dubey",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23088",
+          "slug": "vishal-nishad",
+          "name": "Vishal Nishad",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3729",
+          "slug": "lockie-ferguson",
+          "name": "Lockie Ferguson",
+          "role": "Bowler",
+          "nationality": "New Zealander"
+        }
+      ]
+    },
+    "RCB": {
+      "teamShort": "RCB",
+      "teamSlug": "royal-challengers-bengaluru",
+      "captain": "Rajat Patidar",
+      "coach": "Andy Flower",
+      "players": [
+        {
+          "iplId": "5471",
+          "slug": "rajat-patidar",
+          "name": "Rajat Patidar",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5430",
+          "slug": "devdutt-padikkal",
+          "name": "Devdutt Padikkal",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "164",
+          "slug": "virat-kohli",
+          "name": "Virat Kohli",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5606",
+          "slug": "phil-salt",
+          "name": "Phil Salt",
+          "role": "Wicketkeeper Batter",
+          "nationality": "English"
+        },
+        {
+          "iplId": "3185",
+          "slug": "jitesh-sharma",
+          "name": "Jitesh Sharma",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23023",
+          "slug": "jordan-cox",
+          "name": "Jordan Cox",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Overseas"
+        },
+        {
+          "iplId": "3183",
+          "slug": "krunal-pandya",
+          "name": "Krunal Pandya",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3180",
+          "slug": "swapnil-singh",
+          "name": "Swapnil Singh",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "4524",
+          "slug": "tim-david",
+          "name": "Tim David",
+          "role": "All Rounder",
+          "nationality": "Singaporean"
+        },
+        {
+          "iplId": "20609",
+          "slug": "romario-shepherd",
+          "name": "Romario Shepherd",
+          "role": "All Rounder",
+          "nationality": "West Indian"
+        },
+        {
+          "iplId": "22074",
+          "slug": "jacob-bethell",
+          "name": "Jacob Bethell",
+          "role": "All Rounder",
+          "nationality": "English"
+        },
+        {
+          "iplId": "8540",
+          "slug": "venkatesh-iyer",
+          "name": "Venkatesh Iyer",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23036",
+          "slug": "satvik-deswal",
+          "name": "Satvik Deswal",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23040",
+          "slug": "mangesh-yadav",
+          "name": "Mangesh Yadav",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20624",
+          "slug": "vicky-ostwal",
+          "name": "Vicky Ostwal",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23150",
+          "slug": "vihaan-malhotra",
+          "name": "Vihaan Malhotra",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23168",
+          "slug": "kanishk-chouhan",
+          "name": "Kanishk Chouhan",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "857",
+          "slug": "josh-hazlewood",
+          "name": "Josh Hazlewood",
+          "role": "Bowler",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "20577",
+          "slug": "rasikh-dar",
+          "name": "Rasikh Dar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5668",
+          "slug": "suyash-sharma",
+          "name": "Suyash Sharma",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "116",
+          "slug": "bhuvneshwar-kumar",
+          "name": "Bhuvneshwar Kumar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20700",
+          "slug": "nuwan-thushara",
+          "name": "Nuwan Thushara",
+          "role": "Bowler",
+          "nationality": "Sri Lankan"
+        },
+        {
+          "iplId": "22136",
+          "slug": "abhinandan-singh",
+          "name": "Abhinandan Singh",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23003",
+          "slug": "jacob-duffy",
+          "name": "Jacob Duffy",
+          "role": "Bowler",
+          "nationality": "Overseas"
+        },
+        {
+          "iplId": "20591",
+          "slug": "yash-dayal",
+          "name": "Yash Dayal",
+          "role": "Bowler",
+          "nationality": "Indian"
+        }
+      ]
+    },
+    "RR": {
+      "teamShort": "RR",
+      "teamSlug": "rajasthan-royals",
+      "captain": "Riyan Parag",
+      "coach": "Kumar Sangakkara",
+      "players": [
+        {
+          "iplId": "20688",
+          "slug": "shubham-dubey",
+          "name": "Shubham Dubey",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22203",
+          "slug": "vaibhav-sooryavanshi",
+          "name": "Vaibhav Sooryavanshi",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5652",
+          "slug": "donovan-ferreira",
+          "name": "Donovan Ferreira",
+          "role": "Wicketkeeper Batter",
+          "nationality": "South Africa"
+        },
+        {
+          "iplId": "22383",
+          "slug": "lhuan-dre-pretorious",
+          "name": "Lhuan-dre Pretorious",
+          "role": "Wicketkeeper Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "23044",
+          "slug": "ravi-singh",
+          "name": "Ravi Singh",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23034",
+          "slug": "aman-rao-perala",
+          "name": "Aman Rao Perala",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1705",
+          "slug": "shimron-hetmyer",
+          "name": "Shimron Hetmyer",
+          "role": "Batter",
+          "nationality": "West Indian"
+        },
+        {
+          "iplId": "13538",
+          "slug": "yashasvi-jaiswal",
+          "name": "Yashasvi Jaiswal",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20620",
+          "slug": "dhruv-jurel",
+          "name": "Dhruv Jurel",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "4445",
+          "slug": "riyan-parag",
+          "name": "Riyan Parag",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "10842",
+          "slug": "yudhvir-singh-charak",
+          "name": "Yudhvir Singh Charak",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "9",
+          "slug": "ravindra-jadeja",
+          "name": "Ravindra Jadeja",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1095",
+          "slug": "dasun-shanaka",
+          "name": "Dasun Shanaka",
+          "role": "All Rounder",
+          "nationality": "Sri Lankan"
+        },
+        {
+          "iplId": "3502",
+          "slug": "jofra-archer",
+          "name": "Jofra Archer",
+          "role": "Bowler",
+          "nationality": "English"
+        },
+        {
+          "iplId": "3257",
+          "slug": "tushar-deshpande",
+          "name": "Tushar Deshpande",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20724",
+          "slug": "kwena-maphaka",
+          "name": "Kwena Maphaka",
+          "role": "Bowler",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "19351",
+          "slug": "ravi-bishnoi",
+          "name": "Ravi Bishnoi",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20695",
+          "slug": "sushant-mishra",
+          "name": "Sushant Mishra",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23016",
+          "slug": "yash-raj-punja",
+          "name": "Yash Raj Punja",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22266",
+          "slug": "vignesh-puthur",
+          "name": "Vignesh Puthur",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23164",
+          "slug": "brijesh-sharma",
+          "name": "Brijesh Sharma",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "434",
+          "slug": "adam-milne",
+          "name": "Adam Milne",
+          "role": "Bowler",
+          "nationality": "New Zealander"
+        },
+        {
+          "iplId": "20616",
+          "slug": "kuldeep-sen",
+          "name": "Kuldeep Sen",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "1112",
+          "slug": "sandeep-sharma",
+          "name": "Sandeep Sharma",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "20716",
+          "slug": "nandre-burger",
+          "name": "Nandre Burger",
+          "role": "Bowler",
+          "nationality": "South Africa"
+        }
+      ]
+    },
+    "SRH": {
+      "teamShort": "SRH",
+      "teamSlug": "sunrisers-hyderabad",
+      "captain": "Pat Cummins",
+      "coach": "Daniel Vettori",
+      "players": [
+        {
+          "iplId": "2975",
+          "slug": "ishan-kishan",
+          "name": "Ishan Kishan",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22082",
+          "slug": "aniket-verma",
+          "name": "Aniket Verma",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22378",
+          "slug": "smaran-ravichandran",
+          "name": "Smaran Ravichandran",
+          "role": "Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23041",
+          "slug": "salil-arora",
+          "name": "Salil Arora",
+          "role": "Wicketkeeper Batter",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3869",
+          "slug": "heinrich-klaasen",
+          "name": "Heinrich Klaasen",
+          "role": "Wicketkeeper Batter",
+          "nationality": "South African"
+        },
+        {
+          "iplId": "1020",
+          "slug": "travis-head",
+          "name": "Travis Head",
+          "role": "Batter",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "157",
+          "slug": "harshal-patel",
+          "name": "Harshal Patel",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22077",
+          "slug": "kamindu-mendis",
+          "name": "Kamindu Mendis",
+          "role": "All Rounder",
+          "nationality": "Sri Lankan"
+        },
+        {
+          "iplId": "22381",
+          "slug": "harsh-dubey",
+          "name": "Harsh Dubey",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23006",
+          "slug": "shivang-kumar",
+          "name": "Shivang Kumar",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23132",
+          "slug": "krains-fuletra",
+          "name": "Krains Fuletra",
+          "role": "All-Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3644",
+          "slug": "liam-livingstone",
+          "name": "Liam Livingstone",
+          "role": "All Rounder",
+          "nationality": "English"
+        },
+        {
+          "iplId": "3760",
+          "slug": "abhishek-sharma",
+          "name": "Abhishek Sharma",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "5711",
+          "slug": "nitish-kumar-reddy",
+          "name": "Nitish Kumar Reddy",
+          "role": "All Rounder",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "488",
+          "slug": "pat-cummins",
+          "name": "Pat Cummins",
+          "role": "Bowler",
+          "nationality": "Australian"
+        },
+        {
+          "iplId": "22007",
+          "slug": "zeeshan-ansari",
+          "name": "Zeeshan Ansari",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "86",
+          "slug": "jaydev-unadkat",
+          "name": "Jaydev Unadkat",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "22228",
+          "slug": "eshan-malinga",
+          "name": "Eshan Malinga",
+          "role": "Bowler",
+          "nationality": "Sri Lankan"
+        },
+        {
+          "iplId": "20717",
+          "slug": "sakib-hussain",
+          "name": "Sakib Hussain",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23048",
+          "slug": "onkar-tarmale",
+          "name": "Onkar Tarmale",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23087",
+          "slug": "amit-kumar",
+          "name": "Amit Kumar",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "23114",
+          "slug": "praful-hinge",
+          "name": "Praful Hinge",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "3779",
+          "slug": "shivam-mavi",
+          "name": "Shivam Mavi",
+          "role": "Bowler",
+          "nationality": "Indian"
+        },
+        {
+          "iplId": "33337",
+          "slug": "dilshan-madushanka",
+          "name": "Dilshan Madushanka",
+          "role": "BOWLER",
+          "nationality": "Sri Lanka"
+        },
+        {
+          "iplId": "20686",
+          "slug": "gerald-coetzee",
+          "name": "Gerald Coetzee",
+          "role": "Bowler",
+          "nationality": "South African"
+        }
+      ]
+    }
+  }
+}

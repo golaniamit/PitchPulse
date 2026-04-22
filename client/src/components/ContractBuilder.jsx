@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { SubjectSlot, ContextBadge, TYPE_META } from './ContractCard';
+import MatchPicker from './MatchPicker';
 
 // ── Static maps ─────────────────────────────────────────────────────
 
@@ -501,12 +502,23 @@ function PreviewCard({ contract }) {
 }
 
 // Field block helpers — keep the form readable. Each renders one labelled input.
-function NumInput({ label, value, onChange, hint, min }) {
+function NumInput({ label, value, onChange, hint, min, suggestion, onApplySuggestion }) {
+  const canApply = onApplySuggestion && suggestion != null && String(suggestion) !== String(value || '');
   return (
     <div>
       <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">{label}</p>
       <input type="number" min={min} value={value || ''} onChange={e => onChange(e.target.value)} className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm" />
-      {hint && <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>}
+      {hint && (
+        <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+          <span>{hint}</span>
+          {canApply && (
+            <button type="button" onClick={() => onApplySuggestion(suggestion)}
+                    className="text-navy-800 dark:text-blue-400 hover:underline font-semibold">
+              use {suggestion}
+            </button>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -528,14 +540,39 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
   const [phase, setPhase]   = useState(null);
   const [type, setType]     = useState(null);
   const [fields, setFields] = useState({});
-  const [resolveMode, setResolveMode] = useState('manual');
+  // Default to auto — admin almost always wants Cricbuzz-backed auto-resolve.
+  // Custom and season types get forced to manual at submit time anyway.
+  const [resolveMode, setResolveMode] = useState('auto');
   const [submitting, setSubmitting]   = useState(false);
   const [error, setError]   = useState('');
   const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [matchId, setMatchId] = useState(null); // Cricbuzz numeric id; null = inherit global match
+  const [suggestion, setSuggestion] = useState(null); // { threshold, note } from /api/admin/contract-suggestion
 
   useEffect(() => {
     fetch('/api/teams', { credentials: 'include' }).then(r => r.json()).then(d => setTeams(d.teams || []));
   }, []);
+
+  // Ask the backend for a projected threshold + one-line note whenever the
+  // inputs that influence it change. Debounced to avoid thrashing while typing.
+  // (The batsman param is omitted — player roster is fetched inside PlayerGrid
+  // and isn't available here; the server falls back to a sensible default.)
+  useEffect(() => {
+    if (!matchId || !type) { setSuggestion(null); return; }
+    const teamShort = teams.find(t => t.id === fields.team_id)?.short_code;
+    const params = new URLSearchParams({ match_id: String(matchId), type });
+    if (teamShort)        params.set('team', teamShort);
+    if (fields.over)      { params.set('over', String(fields.over)); params.set('by_over', String(fields.over)); }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`/api/admin/contract-suggestion?${params}`, { credentials: 'include' })
+        .then(r => r.json())
+        .then(d => { if (!cancelled) setSuggestion(d); })
+        .catch(() => { if (!cancelled) setSuggestion(null); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [matchId, type, fields.team_id, fields.over, teams]);
 
   // Prefill on edit / duplicate (object-reference change → fresh load)
   const lastEditingRef = useRef(null);
@@ -550,6 +587,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
     setPhase(editing.phase || null);
     setType(editing.type || null);
     setResolveMode(editing.resolve_mode || 'manual');
+    setMatchId(editing.match_id || null);
     let cond = {};
     try { cond = editing.condition_json ? JSON.parse(editing.condition_json) : {}; } catch (_) {}
     setFields({
@@ -575,8 +613,13 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
     setError('');
   }, [editing]);
 
+  // Reset form after a successful save. Intentionally preserves `matchId`:
+  // the admin almost always creates a batch of contracts for the same match,
+  // so re-picking it every time is annoying. Also preserves the default
+  // resolve mode ('auto') rather than forcing back to 'manual'.
   function reset() {
-    setPhase(null); setType(null); setFields({}); setResolveMode('manual'); setError('');
+    setPhase(null); setType(null); setFields({}); setResolveMode('auto'); setError('');
+    // matchId stays — cleared only when admin picks a different match or clears it manually.
   }
 
   function selectPhase(p) {
@@ -683,6 +726,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
         title,
         type,
         condition_json,
+        match_id: matchId || null,
         phase,
         subject_kind,
         team_id: fields.team_id || null,
@@ -691,7 +735,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
         over_number,
         innings_number,
         season_code: phase === 'season' ? (fields.season_code || DEFAULT_SEASON_CODE) : null,
-        resolve_mode: phase === 'season' ? 'manual' : resolveMode,
+        resolve_mode: (phase === 'season' || TYPES_WITH_CUSTOM_TITLE.has(type)) ? 'manual' : resolveMode,
         status: publishStatus,
       };
       const url    = editing?.id ? `/api/contracts/${editing.id}` : '/api/contracts';
@@ -725,6 +769,12 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
           </button>
         )}
       </div>
+
+      {/* Match picker — optional, removable. Hidden for season-long contracts
+          (they span many matches, so a single match_id doesn't apply). */}
+      {phase !== 'season' && (
+        <MatchPicker value={matchId} onChange={setMatchId} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <div className="lg:col-span-3 space-y-5">
@@ -848,11 +898,17 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
                   <>
                     <Select label="Operator" value={fields.operator || '>='} onChange={v => setField('operator', v)} options={OP_OPTIONS} />
                     <NumInput label={type === 'innings_score' ? 'Run target' : 'Runs threshold'}
-                              value={fields.threshold} onChange={v => setField('threshold', v)} />
+                              value={fields.threshold} onChange={v => setField('threshold', v)}
+                              hint={suggestion?.note}
+                              suggestion={suggestion?.threshold}
+                              onApplySuggestion={v => setField('threshold', v)} />
                   </>
                 )}
                 {TYPES_WITH_MILESTONE.has(type) && (
-                  <NumInput label="Milestone (runs)" value={fields.milestone} onChange={v => setField('milestone', v)} />
+                  <NumInput label="Milestone (runs)" value={fields.milestone} onChange={v => setField('milestone', v)}
+                            hint={suggestion?.note}
+                            suggestion={suggestion?.threshold}
+                            onApplySuggestion={v => setField('milestone', v)} />
                 )}
                 {TYPES_WITH_MIN_WICKETS.has(type) && (
                   <NumInput label="Min wickets" min={1} value={fields.min_wickets || 1} onChange={v => setField('min_wickets', v)}
@@ -887,17 +943,14 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
               <div>
                 <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">Resolve mode</p>
                 {phase === 'season' ? (
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Manual — CricAPI can't track league standings, so you settle these at season end.</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Manual — live feeds can't track league standings, so you settle these at season end.</p>
+                ) : isCustomType ? (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Manual — custom contracts are free-text questions, so the resolver can't auto-settle them.</p>
                 ) : (
-                  <>
-                    <div className="flex gap-3 text-sm">
-                      <label className="flex items-center gap-2"><input type="radio" name="rm" value="auto" checked={resolveMode === 'auto'} onChange={() => setResolveMode('auto')} /> Auto (CricAPI)</label>
-                      <label className="flex items-center gap-2"><input type="radio" name="rm" value="manual" checked={resolveMode === 'manual'} onChange={() => setResolveMode('manual')} /> Manual</label>
-                    </div>
-                    {isCustomType && (
-                      <p className="text-[10px] text-gray-400 mt-1">Custom contracts are manual-resolve only.</p>
-                    )}
-                  </>
+                  <div className="flex gap-3 text-sm">
+                    <label className="flex items-center gap-2"><input type="radio" name="rm" value="auto" checked={resolveMode === 'auto'} onChange={() => setResolveMode('auto')} /> Auto (Cricbuzz)</label>
+                    <label className="flex items-center gap-2"><input type="radio" name="rm" value="manual" checked={resolveMode === 'manual'} onChange={() => setResolveMode('manual')} /> Manual</label>
+                  </div>
                 )}
               </div>
 
