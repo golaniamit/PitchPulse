@@ -9,6 +9,8 @@ const SORTS = {
   upside:  { label: 'Biggest upside',  fn: (a, b) => (b.quantity * 100 - b.avg_price * b.quantity) - (a.quantity * 100 - a.avg_price * a.quantity) },
 };
 
+const RECENT_DAYS = 30;
+
 export default function Portfolio() {
   const { user } = useAuth();
   const { on } = useSocket();
@@ -16,6 +18,7 @@ export default function Portfolio() {
   const [loading, setLoading] = useState(true);
   const [settling, setSettling] = useState(null);
   const [sort, setSort] = useState('newest');
+  const [showArchive, setShowArchive] = useState(false);
 
   async function load() {
     const r = await fetch('/api/users/portfolio', { credentials: 'include' });
@@ -52,7 +55,14 @@ export default function Portfolio() {
   }
 
   const open = positions.filter(p => p.status === 'active').slice().sort(SORTS[sort].fn);
-  const resolved = positions.filter(p => p.status === 'resolved').slice().sort((a, b) => b.id - a.id);
+  const resolvedAll = positions.filter(p => p.status === 'resolved').slice().sort((a, b) => b.id - a.id);
+  // Split resolved history: "Recent" = last 30 days (or no resolved_at → keep as recent),
+  // "Archive" = everything older. Lives behind a toggle so the default view stays clean.
+  const recentCutoff = Date.now() - RECENT_DAYS * 24 * 60 * 60_000;
+  const isRecent = p => !p.resolved_at || new Date(p.resolved_at + 'Z').getTime() > recentCutoff;
+  const resolvedRecent  = resolvedAll.filter(isRecent);
+  const resolvedArchive = resolvedAll.filter(p => !isRecent(p));
+  const resolved = showArchive ? resolvedAll : resolvedRecent;
 
   // Summary numbers
   const totalStaked = open.reduce((sum, p) => sum + Math.round(p.avg_price * p.quantity), 0);
@@ -221,16 +231,26 @@ export default function Portfolio() {
       </div>
 
       {/* Settled history */}
-      {resolved.length > 0 && (
+      {resolvedAll.length > 0 && (
         <div>
-          <div className="flex items-end justify-between mb-3">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Settled history</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              {(() => {
-                const won = resolved.filter(p => p.side === p.resolution).length;
-                return `${won} won · ${resolved.length - won} lost`;
-              })()}
+          <div className="flex items-end justify-between mb-3 gap-2 flex-wrap">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              Settled {showArchive ? 'history' : `· last ${RECENT_DAYS} days`}
             </p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                {(() => {
+                  const won = resolved.filter(p => p.side === p.resolution).length;
+                  return `${won} won · ${resolved.length - won} lost`;
+                })()}
+              </p>
+              {resolvedArchive.length > 0 && (
+                <button onClick={() => setShowArchive(s => !s)}
+                        className="text-xs font-medium text-navy-800 dark:text-blue-400 hover:underline">
+                  {showArchive ? 'Hide older' : `Show older (${resolvedArchive.length})`}
+                </button>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             {resolved.map(pos => {

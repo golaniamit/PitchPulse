@@ -96,15 +96,17 @@ async function fetchMatch(matchId, slug) {
   const matchHeader = extractObject(rsc, 'matchHeader');
   const miniscore = extractObject(rsc, 'miniscore');
   const scoreDetails = extractObject(rsc, 'matchScoreDetails');
+  const tossResults = extractObject(rsc, 'tossResults');
+  const matchResult = extractObject(rsc, 'result');
 
   if (!matchHeader && !miniscore && !scoreDetails) {
     throw new Error(`Could not parse Cricbuzz RSC payload for match ${matchId}`);
   }
 
-  return normalize({ matchId, slug: effectiveSlug, matchHeader, miniscore, scoreDetails });
+  return normalize({ matchId, slug: effectiveSlug, matchHeader, miniscore, scoreDetails, tossResults, matchResult });
 }
 
-function normalize({ matchId, slug, matchHeader, miniscore, scoreDetails }) {
+function normalize({ matchId, slug, matchHeader, miniscore, scoreDetails, tossResults, matchResult }) {
   const teams = [];
   if (matchHeader?.team1) {
     teams.push({
@@ -148,6 +150,29 @@ function normalize({ matchId, slug, matchHeader, miniscore, scoreDetails }) {
     responseLastUpdated: miniscore.responseLastUpdated,
   } : null;
 
+  // Cricbuzz returns a placeholder tossResults object for matches where the toss
+  // hasn't happened yet: { tossWinnerId: 0, tossWinnerName: "", decision: "" }.
+  // Must be treated as null, otherwise the toss_winner evaluator sees "team 0
+  // won" — not matching any real team — and wrongly settles every contract NO.
+  const tossHasHappened = tossResults
+    && Number(tossResults.tossWinnerId) > 0
+    && tossResults.tossWinnerName
+    && tossResults.decision;
+  const toss = tossHasHappened ? {
+    tossWinnerId: tossResults.tossWinnerId,
+    tossWinnerName: tossResults.tossWinnerName,
+    decision: tossResults.decision,   // "Bowling" or "Batting"
+  } : null;
+
+  const result = matchResult && matchResult.resultType ? {
+    type: matchResult.resultType,           // "win", "tie", "no-result", "draw"
+    winnerId: matchResult.winningteamId,
+    winnerName: matchResult.winningTeam,
+    margin: matchResult.winningMargin,
+    byRuns: matchResult.winByRuns,
+    byWickets: matchResult.winByInnings ? false : (matchResult.winByRuns ? false : true),
+  } : null;
+
   return {
     matchId,
     slug,
@@ -157,6 +182,8 @@ function normalize({ matchId, slug, matchHeader, miniscore, scoreDetails }) {
     teams,
     innings,
     current,
+    toss,
+    result,
     fetchedAt: Date.now(),
   };
 }
@@ -185,6 +212,158 @@ function pickBowler(b) {
     wickets: b.wickets,
     economy: b.economy,
   };
+}
+
+// ── Full scorecard fetcher ───────────────────────────────────────────────────
+// Cricbuzz's /live-cricket-scorecard/<id>/<slug> page embeds a `scoreCard` array
+// with one entry per innings. Each entry has per-batsman and per-bowler stats
+// for the whole innings (runs, balls, fours, sixes, overs bowled, wickets, etc.).
+// Used for match-long player contracts.
+
+async function fetchScorecard(matchId, slug) {
+  const effectiveSlug = slug || await resolveSlug(matchId);
+  const url = `https://www.cricbuzz.com/live-cricket-scorecard/${matchId}/${effectiveSlug}`;
+  const r = await fetch(url, { headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html' } });
+  if (!r.ok) throw new Error(`Cricbuzz scorecard HTTP ${r.status} for match ${matchId}`);
+  const html = await r.text();
+  const rsc = decodeRSC(html);
+  const raw = extractArray(rsc, 'scoreCard');
+  const innings = Array.isArray(raw) ? raw.map(inn => ({
+    inningsId: inn.inningsId,
+    batTeamId: inn.batTeamDetails?.batTeamId,
+    batTeamName: inn.batTeamDetails?.batTeamShortName,
+    bowlTeamId: inn.bowlTeamDetails?.bowlTeamId,
+    bowlTeamName: inn.bowlTeamDetails?.bowlTeamShortName,
+    batsmen: Object.values(inn.batTeamDetails?.batsmenData || {}).map(b => ({
+      id: b.batId,
+      name: b.batName,
+      runs: b.runs,
+      balls: b.balls,
+      fours: b.fours,
+      sixes: b.sixes,
+      outDesc: b.outDesc || null,
+      isOut: !!(b.outDesc && b.outDesc !== 'not out' && b.outDesc !== ''),
+    })),
+    bowlers: Object.values(inn.bowlTeamDetails?.bowlersData || {}).map(bo => ({
+      id: bo.bowlId,
+      name: bo.bowlName,
+      overs: parseFloat(bo.overs) || 0,
+      runs: bo.runs,
+      wickets: bo.wickets,
+      maidens: bo.maidens,
+      economy: parseFloat(bo.economy) || 0,
+    })),
+  })) : [];
+  return { matchId, slug: effectiveSlug, innings, fetchedAt: Date.now() };
+}
+
+// ── Over-by-over fetcher ─────────────────────────────────────────────────────
+// Cricbuzz's /live-cricket-over-by-over/<id>/<slug> page embeds an
+// `overSummaryList` array — one entry per completed over, newest first. Each
+// entry has { inningsId, overs, runs, score, wickets, ovrSummary, batTeamName,
+// batStrikerNames, bowlNames, event }. `ovrSummary` is a space-separated ball
+// string like "0 4 0 W 1 6" which we parse to detect boundaries / wickets.
+
+async function fetchOverByOver(matchId, slug) {
+  const effectiveSlug = slug || await resolveSlug(matchId);
+  const url = `https://www.cricbuzz.com/live-cricket-over-by-over/${matchId}/${effectiveSlug}`;
+  const r = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html' },
+  });
+  if (!r.ok) throw new Error(`Cricbuzz over-by-over HTTP ${r.status} for match ${matchId}`);
+  const html = await r.text();
+  const rsc = decodeRSC(html);
+
+  // Extract the overSummaryList array value (array of objects).
+  const list = extractArray(rsc, 'overSummaryList');
+  return {
+    matchId,
+    slug: effectiveSlug,
+    overs: Array.isArray(list) ? list : [],
+    fetchedAt: Date.now(),
+  };
+}
+
+// Extract an array literal that follows `"key":`. Walks bracket depth the way
+// extractObject walks braces.
+function extractArray(text, key) {
+  const marker = `"${key}":[`;
+  const idx = text.indexOf(marker);
+  if (idx < 0) return null;
+  const start = idx + marker.length - 1; // position of '['
+  let depth = 0, i = start, inStr = false, esc = false;
+  for (; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) { esc = false; continue; }
+      if (ch === '\\') { esc = true; continue; }
+      if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === '[') depth++;
+    else if (ch === ']') {
+      depth--;
+      if (depth === 0) {
+        const raw = text.slice(start, i + 1);
+        try { return JSON.parse(raw); } catch { return null; }
+      }
+    }
+  }
+  return null;
+}
+
+// Parse an `ovrSummary` ball-string ("0 4 0 W 1 Wd 6") and tally what happened.
+// Cricbuzz token conventions (case-insensitive):
+//   "4", "6"       — runs off the bat → boundary
+//   "W"            — wicket
+//   "Wd", "4Wd"    — wide (+runs). Not off the bat, not a legal delivery.
+//   "Lb", "4Lb"    — leg-bye. Not off the bat, IS a legal delivery.
+//   "4B" / "B"     — bye. Same as leg-bye category.
+//   "Nb", "4Nb"    — no-ball (+runs). Leading number is typically TOTAL runs (bat
+//                    + 1 for no-ball). "4Nb"/"5Nb" → a 4 off the bat;
+//                    "6Nb"/"7Nb" → a 6 off the bat. Not a legal delivery.
+// Only off-the-bat boundaries count (a wide or leg-bye that reaches the fence
+// is NOT a batter's four).
+function parseOverSummary(ovrSummary) {
+  if (!ovrSummary || typeof ovrSummary !== 'string') {
+    return { fours: 0, sixes: 0, boundaries: 0, wickets: 0, balls: 0 };
+  }
+  const tokens = ovrSummary.trim().split(/\s+/);
+  let fours = 0, sixes = 0, wickets = 0, balls = 0;
+
+  for (const tok of tokens) {
+    if (!tok) continue;
+    const t = tok.toLowerCase();
+
+    const isWide    = /^\d*wd$/.test(t);              // "wd", "4wd"
+    const isLegBye  = /^\d*lb$/.test(t);              // "lb", "4lb"
+    const isBye     = /^\d+b$/.test(t);               // "4b" (standalone "b" left alone — ambiguous with bowler codes)
+    const isNoBall  = /^\d*nb$/.test(t);              // "nb", "4nb", "7nb"
+    const isWicket  = /^\d*w$/.test(t);               // "W", "1W" (rare run-out on a run)
+
+    if (isWicket) wickets++;
+
+    // Off-the-bat boundary — only count when the runs came from the bat.
+    if (!isWide && !isLegBye && !isBye) {
+      if (isNoBall) {
+        const m = t.match(/^(\d+)nb$/);
+        const total = m ? parseInt(m[1]) : 0;
+        // "6Nb"/"7Nb"+ → six off bat; "4Nb"/"5Nb" → four off bat.
+        if (total >= 6) sixes++;
+        else if (total === 4 || total === 5) fours++;
+      } else if (/^\d+$/.test(t)) {
+        const n = parseInt(t);
+        if (n === 6) sixes++;
+        else if (n === 4) fours++;
+      }
+    }
+
+    // Wides and no-balls don't count as a legal delivery; everything else does.
+    if (!isWide && !isNoBall) balls++;
+  }
+
+  return { fours, sixes, boundaries: fours + sixes, wickets, balls };
 }
 
 // ── Helpers for the resolver (over-snapshot math) ────────────────────────────
@@ -296,11 +475,15 @@ async function listLiveMatches({ seriesFilter } = {}) {
 
 module.exports = {
   fetchMatch,
+  fetchOverByOver,
+  fetchScorecard,
   resolveSlug,
   listLiveMatches,
   findInningsForTeam,
   oversAsFraction,
+  parseOverSummary,
   // Exposed for tests
   _decodeRSC: decodeRSC,
   _extractObject: extractObject,
+  _extractArray: extractArray,
 };

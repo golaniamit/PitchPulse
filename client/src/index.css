@@ -6,6 +6,16 @@
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
   }
+
+  /* Native <select> dropdowns don't respect Tailwind's dark: variants on their
+     <option> elements — browsers render them via OS chrome. Force a dark
+     background/foreground globally when our app is in class-based dark mode
+     so the dropdown text stays readable. */
+  .dark select,
+  .dark select option {
+    background-color: #1f2937;  /* gray-800 */
+    color: #f9fafb;             /* gray-50  */
+  }
 }
 
 @layer utilities {

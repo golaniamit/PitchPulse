@@ -4,14 +4,16 @@ const { requireAuth } = require('../middleware');
 
 const router = express.Router();
 
-// Get portfolio (positions)
+// Get portfolio (positions). Returns everything the user ever held — never
+// archived. Client paginates into Active / Recent / Archive tabs. `resolved_at`
+// is included so the client can split recent vs archive by age.
 router.get('/portfolio', requireAuth, (req, res) => {
   const positions = db.prepare(`
-    SELECT p.*, c.title, c.status, c.resolution, c.current_price, c.type
+    SELECT p.*, c.title, c.status, c.resolution, c.current_price, c.type, c.resolved_at
     FROM positions p
     JOIN contracts c ON p.contract_id = c.id
     WHERE p.user_id = ?
-    ORDER BY c.created_at DESC
+    ORDER BY c.resolved_at DESC, c.created_at DESC
   `).all(req.session.userId);
   res.json({ positions });
 });

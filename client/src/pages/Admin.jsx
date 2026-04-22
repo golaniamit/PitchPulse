@@ -110,236 +110,71 @@ function ResolveModal({ contract, onConfirm, onCancel }) {
   );
 }
 
-function MatchSelector({ onTeamsChange }) {
-  const [activeMatch, setActiveMatch] = useState(null);
-  const [matches, setMatches] = useState([]);
-  const [loadingMatches, setLoadingMatches] = useState(false);
-  const [matchError, setMatchError] = useState('');
-  const [setting, setSetting] = useState(false);
-  const [apiEnabled, setApiEnabled] = useState(false);
-  const [toggling, setToggling] = useState(false);
-  const [pollMinutes, setPollMinutes] = useState(2);
-  const [intervalInput, setIntervalInput] = useState('2');
-  const [savingInterval, setSavingInterval] = useState(false);
-  const [iplOnly, setIplOnly] = useState(true);   // most relevant to this app; still allows other if toggled off
 
-  useEffect(() => {
-    fetch('/api/admin/active-match', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => {
-        setActiveMatch(d);
-        if (d.teams?.length) onTeamsChange(d.teams);
-        setApiEnabled(d.apiEnabled ?? false);
-        setPollMinutes(d.pollMinutes ?? 2);
-        setIntervalInput(String(d.pollMinutes ?? 2));
-      })
-      .catch(() => {});
-  }, []);
+// Compact control for the Cricbuzz poll interval. Sits beside Bots/UserStats
+// so the admin can widen the cadence pre-match (saves scraping bandwidth and
+// keeps the ledger tidy) and tighten it live (catches resolutions within a
+// minute of them happening on Cricbuzz). Pre-configured presets — one click,
+// no typing.
+function PollIntervalControl() {
+  const [mins, setMins] = useState(null);   // current server value
+  const [draft, setDraft] = useState('');   // input box value
+  const [saving, setSaving] = useState(false);
 
-  async function toggleApi() {
-    setToggling(true);
+  async function load() {
     try {
-      const r = await fetch('/api/admin/toggle-api', { method: 'POST', credentials: 'include' });
+      const r = await fetch('/api/admin/active-match', { credentials: 'include' });
+      if (!r.ok) return;
       const d = await r.json();
-      setApiEnabled(d.enabled);
-    } catch { /* ignore */ } finally {
-      setToggling(false);
-    }
+      setMins(d.pollMinutes ?? null);
+      setDraft(String(d.pollMinutes ?? ''));
+    } catch { /* ignore */ }
   }
 
-  async function applyInterval() {
-    const mins = parseInt(intervalInput);
-    if (!mins || mins < 1) return;
-    setSavingInterval(true);
+  useEffect(() => { load(); }, []);
+
+  async function apply() {
+    const m = parseInt(draft, 10);
+    if (!m || m < 1 || m === mins || saving) return;
+    setSaving(true);
     try {
-      await fetch('/api/admin/set-poll-interval', {
-        method: 'POST',
-        credentials: 'include',
+      const r = await fetch('/api/admin/set-poll-interval', {
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minutes: mins }),
+        body: JSON.stringify({ minutes: m }),
       });
-      setPollMinutes(mins);
-    } catch { /* ignore */ } finally {
-      setSavingInterval(false);
-    }
+      if (r.ok) setMins(m);
+    } catch { /* ignore */ } finally { setSaving(false); }
   }
 
-  async function loadMatches() {
-    setLoadingMatches(true); setMatchError('');
-    try {
-      const r = await fetch('/api/admin/matches', { credentials: 'include' });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      setMatches(d.matches || []);
-    } catch (e) {
-      setMatchError(e.message);
-    } finally {
-      setLoadingMatches(false);
-    }
-  }
-
-  async function selectMatch(m) {
-    setSetting(m.id);
-    try {
-      const r = await fetch('/api/admin/set-match', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: m.id, matchName: m.name, teams: m.teams }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      const updatedMatch = { matchId: m.id, matchName: m.name, apiKeySet: true, teams: m.teams || [] };
-      setActiveMatch(updatedMatch);
-      if (m.teams?.length) onTeamsChange(m.teams);
-      setMatches([]);
-    } catch (e) {
-      setMatchError(e.message);
-    } finally {
-      setSetting(false);
-    }
-  }
-
-  const apiKeyMissing = activeMatch && !activeMatch.apiKeySet;
+  const draftNum = parseInt(draft, 10);
+  const canApply = draftNum >= 1 && draftNum !== mins && !saving;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-bold text-gray-900 dark:text-gray-100">Live Match</h2>
-        <div className="flex items-center gap-2">
-          {activeMatch?.apiKeySet && (
-            <button
-              onClick={toggleApi}
-              disabled={toggling}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-                apiEnabled ? 'bg-green-500' : 'bg-gray-300'
-              } ${toggling ? 'opacity-50' : ''}`}
-              title={apiEnabled ? 'CricAPI ON — click to disable' : 'CricAPI OFF — click to enable'}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                apiEnabled ? 'translate-x-6' : 'translate-x-1'
-              }`} />
-            </button>
-          )}
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            !activeMatch?.apiKeySet
-              ? 'text-amber-700 bg-amber-50'
-              : apiEnabled
-                ? 'text-green-700 bg-green-50'
-                : 'text-gray-500 bg-gray-100'
-          }`}>
-            {!activeMatch?.apiKeySet ? 'API key not set' : apiEnabled ? 'API ON' : 'API OFF'}
-          </span>
-        </div>
+        <h2 className="font-bold text-gray-900 dark:text-gray-100">Resolver poll</h2>
+        <span className="text-xs text-gray-500 dark:text-gray-400">every {mins ?? '…'} min</span>
       </div>
-
-      {/* Poll interval control — only shown when API key is set */}
-      {activeMatch?.apiKeySet && (
-        <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">Poll every</span>
-          <input
-            type="number"
-            min="1"
-            max="60"
-            value={intervalInput}
-            onChange={e => setIntervalInput(e.target.value)}
-            className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-navy-800"
-          />
-          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">min</span>
-          <button
-            onClick={applyInterval}
-            disabled={savingInterval || parseInt(intervalInput) === pollMinutes}
-            className="ml-auto text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 disabled:opacity-40 transition-colors"
-          >
-            {savingInterval ? 'Saving...' : 'Apply'}
-          </button>
-          <span className="text-xs text-gray-400">
-            {pollMinutes === 1 ? '(current: 1 min)' : `(current: ${pollMinutes} min)`}
-          </span>
-        </div>
-      )}
-
-      {apiKeyMissing && (
-        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2">
-          Add your CricAPI key to <code className="font-mono">.env</code> as <code className="font-mono">CRIC_API_KEY</code> and restart the server.
-        </p>
-      )}
-
-      {activeMatch?.matchId ? (
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Currently tracking</p>
-            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{activeMatch.matchName || activeMatch.matchId}</p>
-          </div>
-          <span className="text-green-600 text-lg">✓</span>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-400">No match selected. Load matches to pick one.</p>
-      )}
-
-      {matches.length === 0 ? (
+      <div className="flex items-center gap-2">
+        <input
+          type="number" min="1" value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && canApply) apply(); }}
+          className="w-20 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-navy-800/30"
+        />
+        <span className="text-xs text-gray-500 dark:text-gray-400">min</span>
         <button
-          onClick={loadMatches}
-          disabled={loadingMatches || apiKeyMissing}
-          className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40"
+          onClick={apply}
+          disabled={!canApply}
+          className="ml-auto text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 disabled:opacity-40 transition-colors"
         >
-          {loadingMatches ? 'Loading...' : 'Load Matches from CricAPI'}
+          {saving ? 'Saving…' : 'Apply'}
         </button>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-400">Tap a match to set it as active:</p>
-            <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={iplOnly}
-                onChange={e => setIplOnly(e.target.checked)}
-                className="accent-navy-800 w-3.5 h-3.5"
-              />
-              IPL only
-            </label>
-          </div>
-          {(iplOnly
-            ? matches.filter(m => /ipl|indian premier league/i.test([m.name, m.matchType].filter(Boolean).join(' ')))
-            : matches
-          ).map(m => (
-            <button
-              key={m.id}
-              onClick={() => selectMatch(m)}
-              disabled={!!setting}
-              className={`w-full text-left border rounded-xl p-3 transition-colors ${
-                activeMatch?.matchId === m.id
-                  ? 'border-navy-800 bg-navy-800/5'
-                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{m.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{m.venue} · {m.matchType}</p>
-                </div>
-                <div className="flex-shrink-0 text-right">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    m.status?.toLowerCase().includes('live') || m.status?.toLowerCase().includes('progress')
-                      ? 'text-green-700 bg-green-50'
-                      : 'text-gray-500 bg-gray-100'
-                  }`}>
-                    {setting === m.id ? 'Setting...' : (m.status || 'Upcoming')}
-                  </span>
-                </div>
-              </div>
-            </button>
-          ))}
-          <button
-            onClick={() => setMatches([])}
-            className="text-xs text-gray-400 hover:text-gray-600 w-full text-center py-1"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {matchError && <p className="text-xs text-red-600">{matchError}</p>}
+      </div>
+      <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
+        Widen pre-match; tighten once play starts. Takes effect immediately.
+      </p>
     </div>
   );
 }
@@ -492,25 +327,147 @@ function UserStats() {
   );
 }
 
+// Cricbuzz's match status strings embed times in GMT (e.g. "Match starts at
+// Apr 22, 14:00 GMT"). Users reading these assume the number is their local
+// clock time, which is confusing for anyone not in the UK. Convert any
+// "<Mon> <Day>, HH:MM GMT|UTC" fragment to IST with the timezone label
+// explicit, since the app audience is in India. Format:
+//   "14:00 GMT" → "22 Apr, 7:30 pm IST"
+const MONTHS = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+function localizeReason(str) {
+  if (!str) return str;
+  const re = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{1,2}):(\d{2})\s+(GMT|UTC)/g;
+  return str.replace(re, (_m, mon, day, hh, mm) => {
+    const now = new Date();
+    const d = new Date(Date.UTC(now.getUTCFullYear(), MONTHS[mon], +day, +hh, +mm));
+    const ist = d.toLocaleString('en-IN', {
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit',
+      timeZone: 'Asia/Kolkata',
+    });
+    return `${ist} IST`;
+  });
+}
+
+// Undo settle — 60s countdown starting from resolved_at. Hides when expired,
+// even if the page hasn't reloaded. Only visible to admins on freshly-resolved
+// contracts.
+function UndoButton({ ageMs: initialAgeMs, onClick }) {
+  const [ageMs, setAgeMs] = useState(initialAgeMs);
+  useEffect(() => {
+    const startedAt = Date.now() - initialAgeMs;
+    const id = setInterval(() => {
+      const now = Date.now() - startedAt;
+      if (now >= 60_000) { clearInterval(id); setAgeMs(60_000); }
+      else setAgeMs(now);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [initialAgeMs]);
+  const secondsLeft = Math.max(0, 60 - Math.floor(ageMs / 1000));
+  if (secondsLeft === 0) return null;
+  return (
+    <button onClick={onClick}
+            className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold"
+            title="Reverses payouts and flips the contract back to active. Resolver will re-evaluate on next poll.">
+      ↶ Undo ({secondsLeft}s)
+    </button>
+  );
+}
+
+// Small green/amber/red dot + tooltip showing resolver freshness. Thresholds
+// are RELATIVE to the admin-configured poll interval so a 60-min cadence
+// doesn't wrongly go red after 5 min. Rules:
+//   Green  — last poll within (interval + 30s buffer), no errors
+//   Amber  — within 2x interval, or fresh poll had an error
+//   Red    — beyond 2x interval (missed a full cycle)
+function ResolverHealthDot({ health }) {
+  if (!health) return null;
+  const intervalMs = (health.pollIntervalMinutes || 2) * 60_000;
+  const ageMs = health.lastPollFinishedAt ? Date.now() - health.lastPollFinishedAt : null;
+  const anyError = !!health.lastPollError || (health.matches || []).some(m => m.lastError);
+  const greenCutoff  = intervalMs + 30_000;
+  const amberCutoff  = 2 * intervalMs;
+
+  const fmtAge = (ms) => ms < 60_000 ? `${Math.round(ms/1000)}s` : `${Math.round(ms/60000)}m`;
+  const fmtInterval = health.pollIntervalMinutes ? `${health.pollIntervalMinutes} min` : '?';
+
+  let color = 'bg-gray-300', label = 'Resolver status unknown';
+  if (ageMs != null) {
+    if (ageMs <= greenCutoff && !anyError) {
+      color = 'bg-green-500';
+      label = `Resolver healthy — last poll ${fmtAge(ageMs)} ago (interval: ${fmtInterval})`;
+    } else if (ageMs <= amberCutoff) {
+      color = 'bg-amber-400';
+      label = anyError
+        ? `Resolver ran but had errors — last poll ${fmtAge(ageMs)} ago`
+        : `Resolver late — last poll ${fmtAge(ageMs)} ago (interval: ${fmtInterval})`;
+    } else {
+      color = 'bg-red-500';
+      label = `Resolver stale — last poll ${fmtAge(ageMs)} ago (expected every ${fmtInterval})`;
+    }
+  }
+  const perMatch = (health.matches || []).map(m => {
+    const age = m.lastOkAt ? fmtAge(Date.now() - m.lastOkAt) + ' ago' : 'never';
+    return `Match ${m.matchId}: ok ${age}${m.lastError ? ` (err: ${m.lastError})` : ''}`;
+  }).join('\n');
+  return (
+    <div className="flex items-center gap-2" title={label + (perMatch ? '\n\n' + perMatch : '')}>
+      <span className={`inline-block w-2 h-2 rounded-full ${color}`} />
+      <span className="text-[11px] text-gray-500 dark:text-gray-400">Resolver</span>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [contracts, setContracts] = useState([]);
-  const [matchTeams, setMatchTeams] = useState([]);
   const [editingContract, setEditingContract] = useState(null);   // contract object (or {...c, id: undefined} for duplicate)
   const [resolvingContract, setResolvingContract] = useState(null);
-  const [adminTab, setAdminTab] = useState('all');       // filter for the "All contracts" list
+  const [adminTab, setAdminTab] = useState('active');    // filter for the "All contracts" list — default to active (most common view)
   const builderRef = useRef(null);                        // lets "Duplicate" scroll back to the builder
+
+  // Map of matchId → "TEAM1 vs TEAM2". Filled once on mount so the contract list
+  // can render a glanceable badge showing which Cricbuzz match a contract is tagged to.
+  const [matchLookup, setMatchLookup] = useState({});
+  const [resolverHealth, setResolverHealth] = useState(null);
+  const [includeArchived, setIncludeArchived] = useState(false);
 
   useEffect(() => {
     if (!user?.is_admin) { navigate('/'); return; }
     loadContracts();
+    loadMatchLookup();
+    const pollHealth = () => fetch('/api/admin/resolver-health', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null).then(setResolverHealth).catch(() => {});
+    pollHealth();
+    const id = setInterval(pollHealth, 15000);
+    return () => clearInterval(id);
   }, [user]);
 
+  useEffect(() => { if (user?.is_admin) loadContracts(); }, [includeArchived]);
+
   async function loadContracts() {
-    const r = await fetch('/api/contracts', { credentials: 'include' });
+    const qs = includeArchived ? '?includeArchived=1' : '';
+    const r = await fetch(`/api/contracts${qs}`, { credentials: 'include' });
     const d = await r.json();
     setContracts(d.contracts || []);
+  }
+
+  // Build matchId → "TEAM1 vs TEAM2" map from Cricbuzz's live-scores index so we
+  // can label tagged contracts on the admin list. Fails silently — a missing map
+  // just means we fall back to showing the raw match ID.
+  async function loadMatchLookup() {
+    try {
+      const r = await fetch('/api/admin/cricbuzz-matches', { credentials: 'include' });
+      if (!r.ok) return;
+      const d = await r.json();
+      const map = {};
+      for (const m of d.matches || []) {
+        const teams = (m.teams || []).map(t => t.shortName).filter(Boolean).join(' vs ');
+        if (m.matchId) map[String(m.matchId)] = teams || `Match #${m.matchId}`;
+      }
+      setMatchLookup(map);
+    } catch { /* ignore */ }
   }
 
   function resetBuilder() {
@@ -520,6 +477,18 @@ export default function Admin() {
   function editContract(c) {
     setEditingContract(c);
     builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function undoSettle(contractId) {
+    const r = await fetch(`/api/contracts/${contractId}/undo-settle`, {
+      method: 'POST', credentials: 'include',
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      alert(d.error || 'Undo failed');
+      return;
+    }
+    loadContracts();
   }
 
   async function resolveContract(resolution) {
@@ -553,7 +522,9 @@ export default function Admin() {
   }
 
   // 5.2 — filter the admin's "All Contracts" list by status
-  const ADMIN_TABS = ['all', 'active', 'draft', 'resolved', 'cancelled'];
+  // Order reflects workflow priority: Active is the default daily view, with
+  // Draft / Resolved / Cancelled next, and All as an escape hatch at the end.
+  const ADMIN_TABS = ['active', 'draft', 'resolved', 'cancelled', 'all'];
   const tabCounts = ADMIN_TABS.reduce((acc, t) => {
     acc[t] = t === 'all' ? contracts.length : contracts.filter(c => c.status === t).length;
     return acc;
@@ -575,12 +546,10 @@ export default function Admin() {
       )}
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Match selector */}
-        <MatchSelector onTeamsChange={setMatchTeams} />
-
-        {/* Bots + live player count — side by side on desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Bots + resolver poll + live player count — three cards side by side on desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <BotsControl />
+          <PollIntervalControl />
           <UserStats />
         </div>
 
@@ -595,7 +564,17 @@ export default function Admin() {
 
         {/* All contracts dashboard */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
-          <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-4">All Contracts</h2>
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">All Contracts</h2>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+                <input type="checkbox" checked={includeArchived} onChange={e => setIncludeArchived(e.target.checked)}
+                       className="accent-navy-800 w-3.5 h-3.5" />
+                Include archived
+              </label>
+              <ResolverHealthDot health={resolverHealth} />
+            </div>
+          </div>
 
           {/* Status filter tabs */}
           <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-4">
@@ -618,7 +597,11 @@ export default function Admin() {
             {filteredContracts.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-4">No {adminTab === 'all' ? '' : adminTab + ' '}contracts</p>
             )}
-            {filteredContracts.map(c => (
+            {filteredContracts.map(c => {
+              const isAuto = c.resolve_mode === 'auto';
+              const matchLabel = c.match_id ? (matchLookup[String(c.match_id)] || `Match #${c.match_id}`) : null;
+              const autoMissingMatch = isAuto && !c.match_id && c.type !== 'manual' && c.phase !== 'season';
+              return (
               <div key={c.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3 dark:bg-gray-750">
                 <div className="flex items-start justify-between mb-2">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1 pr-2">{c.title}</p>
@@ -626,9 +609,35 @@ export default function Admin() {
                     {c.status}{c.resolution ? ` · ${c.resolution}` : ''}
                   </span>
                 </div>
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                    isAuto
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                  }`}>
+                    {isAuto ? 'Auto' : 'Manual'}
+                  </span>
+                  {matchLabel && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                      {matchLabel}
+                    </span>
+                  )}
+                  {autoMissingMatch && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                          title="Auto-resolve needs a Cricbuzz match — this contract won't resolve until one is tagged.">
+                      ⚠ no match tagged
+                    </span>
+                  )}
+                </div>
+                {isAuto && c.status === 'active' && c.last_eval_reason && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 italic -mt-1 mb-2"
+                     title={c.last_eval_at ? `Last evaluated: ${new Date(c.last_eval_at + 'Z').toLocaleTimeString()}` : ''}>
+                    ⋯ {localizeReason(c.last_eval_reason)}
+                  </p>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-xs text-gray-400 flex flex-wrap gap-x-2 gap-y-0.5">
-                    <span>{c.type} · {c.resolve_mode} · {c.current_price}¢</span>
+                    <span>{c.type} · {c.current_price}¢</span>
                     {(c.trader_count > 0 || c.volume > 0) && (
                       <span>
                         · 🪙 {c.volume?.toLocaleString() || 0} traded · {c.trader_count || 0} trader{c.trader_count === 1 ? '' : 's'}
@@ -636,6 +645,12 @@ export default function Admin() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    {c.status === 'resolved' && c.resolved_at && (() => {
+                      const ageMs = Date.now() - new Date(c.resolved_at + 'Z').getTime();
+                      return ageMs < 60_000
+                        ? <UndoButton ageMs={ageMs} onClick={() => undoSettle(c.id)} />
+                        : null;
+                    })()}
                     {c.status === 'draft' && (
                       <>
                         <button onClick={() => editContract(c)} className="text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 font-semibold">Edit</button>
@@ -668,7 +683,8 @@ export default function Admin() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

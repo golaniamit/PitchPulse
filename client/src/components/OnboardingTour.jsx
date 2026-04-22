@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 // type: 'intro' | 'outro' | 'spotlight'
@@ -116,7 +115,6 @@ export function useTour(user) {
 /* ─── Tour component ───────────────────────────────────────────────── */
 export default function OnboardingTour({ onClose }) {
   const { markTourSeen } = useAuth();
-  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState(null);
   const [visible, setVisible] = useState(false); // controls fade in/out
@@ -157,30 +155,15 @@ export default function OnboardingTour({ onClose }) {
     return () => window.removeEventListener('resize', onResize);
   }, [current.target, isSpotlight]);
 
-  // Pick the simplest active market to land on after the tour — prefers a contract
-  // that already has trades (shows a real price bar) so the user's first screen is
-  // the most confidence-building one rather than a random "be the first" card.
-  async function pickLandingContract() {
-    try {
-      const r = await fetch('/api/contracts', { credentials: 'include' });
-      const d = await r.json();
-      const active = (d.contracts || []).filter(c => c.status === 'active');
-      if (active.length === 0) return null;
-      // Prefer one with trades and both sides of the book populated.
-      const best = active.find(c => c.has_trades && c.best_yes_bid != null && c.best_no_bid != null)
-                || active.find(c => c.has_trades)
-                || active[0];
-      return best?.id ?? null;
-    } catch { return null; }
-  }
-
-  async function finish() {
+  // Both "Skip" and completion just close the overlay; the user stays on the
+  // Markets page they started the tour from. Earlier behaviour navigated to a
+  // random contract detail page, which surprised users on Skip — easier to
+  // treat both exits identically.
+  function finish() {
     if (finishingRef.current) return;   // idempotent under rapid clicks
     finishingRef.current = true;
     markTourSeen();  // persists to server — works on all browsers/devices
-    const landingId = await pickLandingContract();
     onClose();
-    if (landingId) navigate(`/contract/${landingId}`);
   }
 
   // Use functional setter so rapid clicks can't race past the last step.
