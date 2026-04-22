@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import ContractBuilder from '../components/ContractBuilder';
 
 
@@ -420,6 +421,7 @@ function ResolverHealthDot({ health }) {
 
 export default function Admin() {
   const { user } = useAuth();
+  const { on } = useSocket();
   const navigate = useNavigate();
   const [contracts, setContracts] = useState([]);
   const [editingContract, setEditingContract] = useState(null);   // contract object (or {...c, id: undefined} for duplicate)
@@ -445,6 +447,32 @@ export default function Admin() {
   }, [user]);
 
   useEffect(() => { if (user?.is_admin) loadContracts(); }, [includeArchived]);
+
+  // Live updates — same wiring Home.jsx uses so the admin list reflects
+  // status/price/resolution changes without the admin having to refresh.
+  // Admins see ALL statuses (draft + cancelled included), so no status
+  // filtering here — unlike Home's logic for non-admins.
+  useEffect(() => {
+    if (!user?.is_admin) return;
+    const upsert = (cs, contract) => [contract, ...cs.filter(c => c.id !== contract.id)];
+    const unsubs = [
+      on('contract_created', (msg) =>
+        setContracts(cs => upsert(cs, msg.contract))),
+      on('contract_resolved', (msg) =>
+        setContracts(cs => cs.map(c =>
+          c.id === msg.contractId
+            ? { ...c, status: 'resolved', resolution: msg.resolution, resolved_at: new Date().toISOString().slice(0,19).replace('T',' ') }
+            : c
+        ))),
+      on('contract_updated', (msg) =>
+        setContracts(cs => upsert(cs, msg.contract))),
+      on('price_update', (msg) =>
+        setContracts(cs => cs.map(c =>
+          c.id === msg.contractId ? { ...c, current_price: msg.price } : c
+        ))),
+    ];
+    return () => unsubs.forEach(fn => fn?.());
+  }, [on, user]);
 
   async function loadContracts() {
     const qs = includeArchived ? '?includeArchived=1' : '';
