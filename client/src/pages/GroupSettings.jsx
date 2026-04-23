@@ -13,6 +13,7 @@ export default function GroupSettings() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [err, setErr] = useState('');
   const navigate = useNavigate();
 
@@ -54,6 +55,13 @@ export default function GroupSettings() {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+    } catch { /* ignore */ }
+  }
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(detail.invite_code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 1500);
     } catch { /* ignore */ }
   }
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
@@ -240,13 +248,25 @@ export default function GroupSettings() {
           than in the bottom row it used to share with notifications. */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700 mt-5">
         <p className="text-sm font-bold text-slate-900 dark:text-white">Invite friends</p>
-        <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Share the link. Anyone with it can join (up to 50).</p>
+        <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Share the link or the code. Anyone with it can join (up to 50).</p>
         <div className="mt-3 flex items-center gap-2 flex-wrap">
           <code className="flex-1 min-w-0 truncate text-[11px] sm:text-xs bg-slate-100 dark:bg-gray-900 text-slate-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-700">
             {inviteUrl}
           </code>
           <button onClick={copyInvite} className="text-xs font-semibold bg-navy-800 text-white px-3 py-2 rounded-lg">
             {copied ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+        {/* Just the short code — for when a link doesn't travel well (SMS
+            strippers, read-aloud, whiteboards). Recipient pastes this into
+            the "Join a group" modal in the navbar. */}
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Code</span>
+          <code className="text-[11px] sm:text-xs font-mono font-semibold bg-slate-100 dark:bg-gray-900 text-slate-800 dark:text-gray-200 px-2.5 py-1 rounded border border-slate-200 dark:border-gray-700 tracking-wider">
+            {detail.invite_code}
+          </code>
+          <button onClick={copyCode} className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white underline">
+            {copiedCode ? '✓ Copied' : 'Copy code'}
           </button>
         </div>
         <div className="mt-2 flex flex-wrap gap-2 items-center">
