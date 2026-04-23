@@ -13,6 +13,7 @@ import Admin from './pages/Admin';
 import Feedback from './pages/Feedback';
 import Verify from './pages/Verify';
 import ResetPassword from './pages/ResetPassword';
+import PickUsername from './pages/PickUsername';
 import Settings from './pages/Settings';
 import TradeHistory from './pages/TradeHistory';
 import GroupJoin from './pages/GroupJoin';
@@ -39,6 +40,10 @@ function AppShell() {
   if (location.pathname === '/reset-password') return <ResetPassword />;
 
   if (!user) return <Login />;
+
+  // Brand-new Google signups have no username yet — block everything else
+  // until they pick one.
+  if (user.needs_username) return <PickUsername />;
 
   return (
     <GroupProvider>

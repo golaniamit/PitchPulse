@@ -96,6 +96,13 @@ router.post('/login', async (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_bot = 0').get(username);
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
+  // Google-only accounts have no password set — route them back to Google
+  // instead of letting the bcrypt compare fail with a confusing "invalid
+  // credentials" message.
+  if (!user.password_hash) {
+    return res.status(400).json({ error: 'This account uses Google sign-in. Click "Continue with Google" below.' });
+  }
+
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
@@ -167,9 +174,50 @@ router.post('/logout', (req, res) => {
 // Me (current session)
 router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
-  const user = db.prepare('SELECT id, username, display_name, balance, is_admin, tour_seen, avatar_emoji FROM users WHERE id = ?').get(req.session.userId);
+  const user = db.prepare(
+    'SELECT id, username, display_name, balance, is_admin, tour_seen, avatar_emoji, needs_username FROM users WHERE id = ?'
+  ).get(req.session.userId);
   if (!user) return res.status(401).json({ error: 'User not found' });
   res.json({ user });
+});
+
+// Set username — only used by first-time Google signups. While
+// needs_username = 1, the frontend blocks everything else and asks the user
+// to pick a permanent handle. This clears the flag and writes the chosen
+// username. Once set, it can be changed later via the existing account
+// settings flow (if/when that gets a rename feature).
+router.post('/set-username', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  const { username } = req.body || {};
+  if (!username) return res.status(400).json({ error: 'Username required' });
+  const cleaned = String(username).trim();
+  if (cleaned.length < 2 || cleaned.length > 20) {
+    return res.status(400).json({ error: 'Username must be 2–20 characters' });
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(cleaned)) {
+    return res.status(400).json({ error: 'Letters, numbers, underscores and dashes only' });
+  }
+
+  const user = db.prepare('SELECT id, needs_username FROM users WHERE id = ?').get(req.session.userId);
+  if (!user) return res.status(401).json({ error: 'User not found' });
+  if (!user.needs_username) {
+    return res.status(400).json({ error: 'Username already set' });
+  }
+
+  // Uniqueness — username column has UNIQUE constraint, so catch the error
+  // and return a clean message instead of a 500.
+  try {
+    db.prepare('UPDATE users SET username = ?, needs_username = 0 WHERE id = ?').run(cleaned, user.id);
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) return res.status(409).json({ error: 'That username is taken' });
+    throw err;
+  }
+
+  req.session.username = cleaned;
+  const updated = db.prepare(
+    'SELECT id, username, display_name, balance, is_admin, tour_seen, avatar_emoji, needs_username FROM users WHERE id = ?'
+  ).get(user.id);
+  res.json({ user: updated });
 });
 
 // ---- Account settings ----

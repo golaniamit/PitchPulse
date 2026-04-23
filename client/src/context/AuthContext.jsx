@@ -77,8 +77,22 @@ export function AuthProvider({ children }) {
     setUser(u => u ? { ...u, tour_seen: 1 } : u);
   }
 
+  // Called from the PickUsername screen on first login after Google signup.
+  async function setUsername(username) {
+    const r = await fetch('/api/auth/set-username', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    setUser(data.user);
+    return data.user;
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, resendVerification, logout, refresh, updateBalance, markTourSeen }}>
+    <AuthContext.Provider value={{ user, loading, login, register, resendVerification, logout, refresh, updateBalance, markTourSeen, setUsername }}>
       {children}
     </AuthContext.Provider>
   );

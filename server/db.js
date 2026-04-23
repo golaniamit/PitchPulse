@@ -165,6 +165,17 @@ try { db.exec(`ALTER TABLE users ADD COLUMN avatar_emoji TEXT`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN balance_at_day_start INTEGER`); } catch (_) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN snapshot_date TEXT`); } catch (_) {}
 
+// Google sign-in columns. google_id is the stable Google account identifier
+// (the `sub` claim). google_email is kept separately from `email` because
+// Google users can later change their app email in Settings without losing
+// the link to their Google account. needs_username = 1 is set for brand-new
+// Google signups until the user picks a username on first login — the UI
+// routes them to the picker while this flag is on.
+try { db.exec(`ALTER TABLE users ADD COLUMN google_id TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN google_email TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN needs_username INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL`); } catch (_) {}
+
 // New contract metadata columns — drive the 3-slot card layout.
 //   phase         : 'over' | 'by_over' | 'toss' | 'match' | 'season'  (RIGHT badge token)
 //   subject_kind  : 'team' | 'player' | 'matchup' | 'match_generic' (LEFT slot variant)

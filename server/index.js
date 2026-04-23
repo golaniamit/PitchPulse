@@ -3,6 +3,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const express = require('express');
 const http = require('http');
 const session = require('express-session');
+const passport = require('passport');
 const cors = require('cors');
 const path = require('path');
 
@@ -12,6 +13,7 @@ const { startBots } = require('./engine/bots');
 const { startResolver } = require('./engine/cricbuzz-resolver');
 
 const authRoutes = require('./routes/auth');
+const authGoogleRoutes = require('./routes/auth-google');
 const contractRoutes = require('./routes/contracts');
 const orderRoutes = require('./routes/orders');
 const userRoutes = require('./routes/users');
@@ -46,7 +48,13 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
-// Routes
+// Passport is only used for the Google OAuth dance. We do not rely on its
+// session serialization — express-session still owns the logged-in state.
+app.use(passport.initialize());
+
+// Routes. Both routers share the /api/auth prefix but expose disjoint paths
+// (google.* vs login/register/me/...) so order between them doesn't matter.
+app.use('/api/auth', authGoogleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/contracts', contractRoutes);
 app.use('/api/orders', orderRoutes);
