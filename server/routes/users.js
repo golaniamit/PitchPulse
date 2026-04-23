@@ -1,24 +1,31 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../middleware');
+const { resolveContext, readBalance, adjustBalance } = require('../lib/context');
 
 const router = express.Router();
 
-// Get portfolio (positions). Returns everything the user ever held — never
-// archived. Client paginates into Active / Recent / Archive tabs. `resolved_at`
-// is included so the client can split recent vs archive by age.
-router.get('/portfolio', requireAuth, (req, res) => {
-  const positions = db.prepare(`
-    SELECT p.*, c.title, c.status, c.resolution, c.current_price, c.type, c.resolved_at
+// Get portfolio (positions). Scoped to the current context: public queries
+// return only public-contract positions; group queries return only that
+// group's positions. Client paginates into Active / Recent / Archive tabs.
+router.get('/portfolio', requireAuth, resolveContext, (req, res) => {
+  let sql = `
+    SELECT p.*, c.title, c.status, c.resolution, c.current_price, c.type, c.resolved_at, c.group_id, c.resolve_reason
     FROM positions p
     JOIN contracts c ON p.contract_id = c.id
     WHERE p.user_id = ?
-    ORDER BY c.resolved_at DESC, c.created_at DESC
-  `).all(req.session.userId);
+  `;
+  const params = [req.session.userId];
+  if (req.groupId) { sql += ' AND c.group_id = ?'; params.push(req.groupId); }
+  else             { sql += ' AND c.group_id IS NULL'; }
+  sql += ' ORDER BY c.resolved_at DESC, c.created_at DESC';
+  const positions = db.prepare(sql).all(...params);
   res.json({ positions });
 });
 
-// Get leaderboard — supports ?period=today|all. Bots and test users excluded.
+// Get leaderboard. Public context returns the existing global leaderboard.
+// For groups, /api/groups/:id/leaderboard is used — clients route based on
+// current context.
 router.get('/leaderboard', requireAuth, (req, res) => {
   const period = req.query.period === 'today' ? 'today' : 'all';
   const today = new Date().toISOString().slice(0, 10);
@@ -28,7 +35,8 @@ router.get('/leaderboard', requireAuth, (req, res) => {
       CASE WHEN u.snapshot_date = ? THEN u.balance - COALESCE(u.balance_at_day_start, u.balance) ELSE 0 END as pnl_today,
       (SELECT COUNT(*) FROM trades t
         JOIN orders o ON (t.buyer_order_id = o.id OR t.seller_order_id = o.id)
-        WHERE o.user_id = u.id) as trade_count
+        JOIN contracts c ON c.id = o.contract_id
+        WHERE o.user_id = u.id AND c.group_id IS NULL) as trade_count
     FROM users u
     WHERE u.is_bot = 0 AND COALESCE(u.is_test, 0) = 0
   `).all(today);
@@ -38,10 +46,18 @@ router.get('/leaderboard', requireAuth, (req, res) => {
   res.json({ leaderboard: users, period });
 });
 
-// Settle a position at current market price (active contracts only)
+// Context-scoped balance lookup — used by the Navbar when the user switches
+// context. Keeps the client from needing two sources of truth.
+router.get('/balance', requireAuth, resolveContext, (req, res) => {
+  const balance = readBalance(req.session.userId, req.groupId);
+  res.json({ balance, groupId: req.groupId || null });
+});
+
+// Settle a position at current market price (active contracts only).
+// Payout credits whichever wallet the position's contract lives in.
 router.post('/positions/:id/settle', requireAuth, (req, res) => {
   const position = db.prepare(`
-    SELECT p.*, c.current_price, c.status
+    SELECT p.*, c.current_price, c.status, c.group_id
     FROM positions p
     JOIN contracts c ON p.contract_id = c.id
     WHERE p.id = ? AND p.user_id = ?
@@ -55,15 +71,14 @@ router.post('/positions/:id/settle', requireAuth, (req, res) => {
     : 100 - position.current_price;
 
   const payout = Math.round(settlePrice * position.quantity);
+  const gid = position.group_id || null;
 
-  // Remove position and refund settle value
+  // Remove position and refund settle value into the right wallet
   db.prepare('DELETE FROM positions WHERE id = ?').run(position.id);
-  db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(payout, req.session.userId);
-
-  const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(req.session.userId).balance;
+  const newBalance = adjustBalance(req.session.userId, gid, payout);
 
   const { broadcast } = require('../websocket');
-  broadcast({ type: 'balance_update', userId: req.session.userId, newBalance });
+  broadcast({ type: 'balance_update', userId: req.session.userId, newBalance, groupId: gid });
 
   res.json({ payout, newBalance });
 });

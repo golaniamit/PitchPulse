@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
+import { useGroup, withGroup } from '../context/GroupContext';
 import ContractCard from '../components/ContractCard';
+import CreateGroupModal from '../components/CreateGroupModal';
+import GroupActivityFeed from '../components/GroupActivityFeed';
 
 /* ─── Dummy contracts shown during the onboarding tour ────────────── */
 const DEMO_CONTRACTS = [
@@ -56,7 +59,23 @@ const TYPE_BUCKETS = {
 export default function Home({ openTour, tourActive }) {
   const { on, send, connected } = useSocket();
   const { user } = useAuth();
-  const isAdmin = !!user?.is_admin;
+  const { currentGroupId, currentGroup, groups } = useGroup();
+  // Discovery-strip dismissal — 7-day cooldown kept per-user in localStorage.
+  // Shows only in public context, only to users with zero groups, to avoid
+  // nagging people who already know about the feature.
+  const DISCOVERY_KEY = `pp.discovery_dismissed_at`;
+  const [discoveryDismissed, setDiscoveryDismissed] = useState(() => {
+    const t = parseInt(localStorage.getItem(DISCOVERY_KEY) || '0', 10);
+    return Number.isFinite(t) && Date.now() - t < 7 * 24 * 3600 * 1000;
+  });
+  const [createOpen, setCreateOpen] = useState(false);
+  const showDiscovery = !currentGroupId && (groups?.length === 0) && !discoveryDismissed && !tourActive;
+  function dismissDiscovery() {
+    localStorage.setItem(DISCOVERY_KEY, String(Date.now()));
+    setDiscoveryDismissed(true);
+  }
+  // Admin in current context — public admin flag OR group admin role.
+  const isAdmin = currentGroup ? currentGroup.role === 'admin' : !!user?.is_admin;
   const [contracts, setContracts] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +87,7 @@ export default function Home({ openTour, tourActive }) {
   const [filterType, setFilterType] = useState('all');
 
   async function load() {
-    const r = await fetch('/api/contracts', { credentials: 'include' });
+    const r = await fetch(withGroup('/api/contracts', currentGroupId), { credentials: 'include' });
     const data = await r.json();
     setContracts(dedupe(data.contracts || []));
     setLoading(false);
@@ -86,40 +105,53 @@ export default function Home({ openTour, tourActive }) {
   function upsert(cs, contract) { return [contract, ...cs.filter(c => c.id !== contract.id)]; }
 
   useEffect(() => {
+    // Reload the contract feed whenever the group context changes so the user
+    // sees their selected universe. loadLive is global (Cricbuzz cache) — no
+    // context needed.
+    setLoading(true);
     load();
     loadLive();
     const id = setInterval(loadLive, 60_000); // refresh live-match state once a minute
     return () => clearInterval(id);
-  }, []);
+  }, [currentGroupId]);
 
   const isVisibleStatus = (s) => s === 'active' || s === 'resolved';
 
-  // Live WebSocket updates
+  // Live WebSocket updates. All context-scoped broadcasts carry groupId; we
+  // drop messages for contexts other than the one the user is currently in.
+  const inCtx = (msg) => (msg?.groupId ?? null) === (currentGroupId ?? null);
   useEffect(() => {
     const unsubs = [
       on('contract_created', (msg) => setContracts(cs => {
+        if (!inCtx(msg)) return cs;
         if (!isAdmin && !isVisibleStatus(msg.contract.status)) return cs;
         return upsert(cs, msg.contract);
       })),
-      on('contract_resolved', (msg) => setContracts(cs => cs.map(c =>
-        c.id === msg.contractId ? { ...c, status: 'resolved', resolution: msg.resolution } : c
-      ))),
-      on('price_update', (msg) => setContracts(cs => cs.map(c =>
-        c.id === msg.contractId ? { ...c, current_price: msg.price, has_trades: true } : c
-      ))),
+      on('contract_resolved', (msg) => setContracts(cs => {
+        if (!inCtx(msg)) return cs;
+        return cs.map(c => c.id === msg.contractId ? { ...c, status: 'resolved', resolution: msg.resolution } : c);
+      })),
+      on('price_update', (msg) => setContracts(cs => {
+        if (!inCtx(msg)) return cs;
+        return cs.map(c => c.id === msg.contractId ? { ...c, current_price: msg.price, has_trades: true } : c);
+      })),
       on('contract_updated', (msg) => setContracts(cs => {
+        if (!inCtx(msg)) return cs;
         if (!isAdmin && !isVisibleStatus(msg.contract.status)) return cs.filter(c => c.id !== msg.contract.id);
         return upsert(cs, msg.contract);
       })),
-      on('orderbook_update', (msg) => setContracts(cs => cs.map(c => {
-        if (c.id !== msg.contractId) return c;
-        const best_yes_bid = msg.bids.length > 0 ? msg.bids[0].price : null;
-        const best_no_bid  = msg.asks.length > 0 ? msg.asks[0].price : null;
-        return { ...c, best_yes_bid, best_no_bid };
-      }))),
+      on('orderbook_update', (msg) => setContracts(cs => {
+        if (!inCtx(msg)) return cs;
+        return cs.map(c => {
+          if (c.id !== msg.contractId) return c;
+          const best_yes_bid = msg.bids.length > 0 ? msg.bids[0].price : null;
+          const best_no_bid  = msg.asks.length > 0 ? msg.asks[0].price : null;
+          return { ...c, best_yes_bid, best_no_bid };
+        });
+      })),
     ];
     return () => unsubs.forEach(fn => fn?.());
-  }, [on, isAdmin]);
+  }, [on, isAdmin, currentGroupId]);
 
   // Subscribe to price / orderbook updates for every visible contract
   const contractIdsKey = contracts.map(c => c.id).join('|');
@@ -202,6 +234,34 @@ export default function Home({ openTour, tourActive }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
+
+      {/* Discovery strip — tells first-time users they can create a private
+          group. Dismissible with a 7-day cooldown, and auto-hides the moment
+          the user creates / joins their first group. Doesn't render inside a
+          group context (you're already using the feature). */}
+      {showDiscovery && (
+        <div className="mb-4 bg-gradient-to-r from-purple-50 via-purple-50 to-amber-50 dark:from-purple-900/20 dark:via-purple-900/20 dark:to-amber-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+          <div className="text-2xl sm:text-3xl flex-shrink-0">👥</div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-slate-900 dark:text-white text-sm leading-tight">Play with your friends</p>
+            <p className="text-[11px] sm:text-xs text-slate-600 dark:text-gray-300 mt-0.5 leading-snug">
+              Create a private group with its own markets, its own coins, and its own leaderboard.
+            </p>
+          </div>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="bg-navy-800 text-white text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-lg hover:bg-navy-700 flex-shrink-0 whitespace-nowrap"
+          >
+            + Create group
+          </button>
+          <button
+            onClick={dismissDiscovery}
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-sm flex-shrink-0 w-6 h-6 rounded hover:bg-white/50 dark:hover:bg-white/10"
+            title="Hide for 7 days"
+          >✕</button>
+        </div>
+      )}
+      {createOpen && <CreateGroupModal open={createOpen} onClose={() => setCreateOpen(false)} />}
 
       {/* Tabs — pill container so each tab flexes to equal width on any screen */}
       <div className="flex items-stretch gap-2 mb-3">
@@ -330,15 +390,37 @@ export default function Home({ openTour, tourActive }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {displayList.map((c, i) => (
-          <ContractCard
-            key={c.id}
-            contract={c}
-            tourTarget={tourActive ? true : (i === 0 && tab === 'all')}
-          />
-        ))}
-      </div>
+      {/* Inside a group: contract grid gets a right-rail activity feed on lg+
+          screens. On mobile the activity feed stacks above the contracts
+          (collapsed to top 3 by default). Public context: straight grid. */}
+      {currentGroupId ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {displayList.map((c, i) => (
+                <ContractCard
+                  key={c.id}
+                  contract={c}
+                  tourTarget={tourActive ? true : (i === 0 && tab === 'all')}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="order-first lg:order-none">
+            <GroupActivityFeed groupId={currentGroupId} />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {displayList.map((c, i) => (
+            <ContractCard
+              key={c.id}
+              contract={c}
+              tourTarget={tourActive ? true : (i === 0 && tab === 'all')}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

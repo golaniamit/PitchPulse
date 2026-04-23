@@ -3,25 +3,37 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useTheme } from '../context/ThemeContext';
+import { useGroup } from '../context/GroupContext';
 import PitchPulseLogo from './PitchPulseLogo';
 import NotificationToggle from './NotificationToggle';
+import GroupSwitcher from './GroupSwitcher';
+import CreateGroupModal from './CreateGroupModal';
+import JoinGroupModal from './JoinGroupModal';
 
-function useLiveScore() {
+// Live-score ticker source. In public context it hits the global admin
+// live-score endpoint; in a group it queries the group's own endpoint which
+// resolves the most-referenced match_id across that group's active contracts
+// so the strip reflects what the group is actually trading on.
+function useLiveScore(currentGroupId) {
   const [score, setScore] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     async function fetch_() {
       try {
-        const r = await fetch('/api/admin/live-score');
+        const url = currentGroupId
+          ? `/api/groups/${currentGroupId}/live-score?group=${currentGroupId}`
+          : '/api/admin/live-score';
+        const r = await fetch(url, { credentials: 'include' });
         const d = await r.json();
         if (!cancelled) setScore(d.available ? d : null);
       } catch { /* ignore */ }
     }
+    setScore(null); // wipe while switching so stale data doesn't flash
     fetch_();
     const id = setInterval(fetch_, 30000);
     return () => { cancelled = true; clearInterval(id); };
-  }, []);
+  }, [currentGroupId]);
 
   return score;
 }
@@ -49,11 +61,20 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const { connected } = useSocket();
   const { dark, toggle } = useTheme();
+  const { currentGroupId, currentGroup, ctxBalance } = useGroup();
   const loc = useLocation();
   const navigate = useNavigate();
-  const liveScore = useLiveScore();
+  const liveScore = useLiveScore(currentGroupId);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [createOpen, setCreateOpen]   = useState(false);
+  const [joinOpen, setJoinOpen]       = useState(false);
   const profileRef = useRef(null);
+
+  // Which links show on the admin row depends on context. In public context,
+  // the public-admin link (is_admin flag) is what gates it. Inside a group,
+  // the group admin sees the same link — their group-scoped builder — and
+  // the public-admin flag is irrelevant.
+  const isAdminHere = currentGroup ? currentGroup.role === 'admin' : !!user?.is_admin;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -95,38 +116,36 @@ export default function Navbar() {
     <nav className="bg-navy-800 shadow-lg sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
 
-        {/* Left: logo + nav links */}
-        <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2">
-            <PitchPulseLogo size={32} showWordmark={true} dark={true} />
-            <span className="text-[10px] font-bold tracking-widest uppercase bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full leading-none select-none">
+        {/* Left: logo + group switcher + nav links */}
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+            {/* On mobile the wordmark eats too much of the row — icon-only. */}
+            <PitchPulseLogo size={32} showWordmark={false} dark={true} />
+            <span className="hidden sm:inline text-[10px] font-bold tracking-widest uppercase bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full leading-none select-none">
               beta
             </span>
           </Link>
+          {/* Group switcher — always visible, replaces the old logo-only left area.
+              Mobile: eats most of the row. Desktop: sits next to the nav links. */}
+          <GroupSwitcher
+            onRequestCreate={() => setCreateOpen(true)}
+            onRequestJoin={() => setJoinOpen(true)}
+          />
           <div className="hidden sm:flex items-center gap-1">
             {navLink('/', 'Markets')}
             {navLink('/portfolio', 'Portfolio', 'nav-portfolio')}
             {navLink('/leaderboard', 'Leaderboard', 'nav-leaderboard')}
             {navLink('/feedback', 'Feedback', 'nav-feedback')}
-            {user?.is_admin ? navLink('/admin', 'Admin') : null}
+            {/* "Group Admin" when inside a group disambiguates from the
+                site-wide admin role, which is still just "Admin" in public. */}
+            {isAdminHere ? navLink('/admin', currentGroup ? 'Group Admin' : 'Admin') : null}
           </div>
         </div>
 
-        {/* Right: dark toggle + connection dot + balance + profile */}
+        {/* Right: connection dot + balance + profile.
+            Dark-mode toggle lives inside the profile dropdown — it was eating
+            horizontal room in the nav that the new group-context tabs need. */}
         <div className="flex items-center gap-3">
-
-          {/* Dark mode toggle — sun/moon labels hidden on mobile to leave room for balance */}
-          <div className="flex items-center gap-1.5">
-            <span className="hidden sm:inline text-white/50 text-xs">☀️</span>
-            <button
-              onClick={toggle}
-              title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none ${dark ? 'bg-white/40' : 'bg-white/20'}`}
-            >
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${dark ? 'translate-x-4' : 'translate-x-0.5'}`} />
-            </button>
-            <span className="hidden sm:inline text-white/50 text-xs">🌙</span>
-          </div>
 
           {/* Connection dot */}
           <div
@@ -134,9 +153,11 @@ export default function Navbar() {
             title={connected ? 'Live' : 'Reconnecting'}
           />
 
-          {/* Coin balance */}
-          <div data-tour="balance" className="bg-white/10 px-3 py-1 rounded-full text-white text-sm font-semibold whitespace-nowrap flex-shrink-0">
-            🪙 {user?.balance?.toLocaleString()}
+          {/* Coin balance — reflects the currently-selected context. Inside a
+              group it shows the per-group wallet; in public it shows users.balance. */}
+          <div data-tour="balance" className="bg-white/10 px-2.5 sm:px-3 py-1 rounded-full text-white text-xs sm:text-sm font-semibold whitespace-nowrap flex-shrink-0"
+               title={currentGroup ? `Wallet in ${currentGroup.name}` : 'Public wallet'}>
+            🪙 {(ctxBalance ?? user?.balance ?? 0).toLocaleString()}
           </div>
 
           {/* Profile avatar + dropdown */}
@@ -217,6 +238,14 @@ export default function Navbar() {
                   >
                     <span className="text-base">⚙️</span> Account settings
                   </Link>
+                  {currentGroup && (
+                    <Link
+                      to="/group/settings"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <span className="text-base">👥</span> Group settings
+                    </Link>
+                  )}
                   <NotificationToggle />
 
                   {/* Dark mode toggle inside menu */}
@@ -272,14 +301,16 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Mobile nav */}
+      {/* Mobile nav — tabs scope to the currently-selected context. Admin link
+          appears if the user is admin in THIS context (public admin or group admin). */}
       <div className="sm:hidden flex border-t border-white/10">
         {[
           ['/', 'Markets', null],
           ['/portfolio', 'Portfolio', 'nav-portfolio'],
           ['/leaderboard', 'Board', null],
           ['/feedback', 'Feedback', 'nav-feedback'],
-          ...(user?.is_admin ? [['/admin', 'Admin', null]] : []),
+          // Same relabel on mobile. "Grp Admin" fits the compact tab row.
+          ...(isAdminHere ? [['/admin', currentGroup ? 'Grp Admin' : 'Admin', null]] : []),
         ].map(([to, label, dataTour]) => (
           <Link
             key={to}
@@ -293,6 +324,10 @@ export default function Navbar() {
           </Link>
         ))}
       </div>
+
+      {/* Create/Join modals mount from the switcher */}
+      <CreateGroupModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <JoinGroupModal open={joinOpen} onClose={() => setJoinOpen(false)} />
     </nav>
   );
 }

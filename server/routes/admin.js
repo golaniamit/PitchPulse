@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { requireAdmin } = require('../middleware');
+const { requireAdmin, requireAuth } = require('../middleware');
 const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval, getHealth } = require('../engine/cricbuzz-resolver');
 const { listLiveMatches } = require('../engine/cricbuzz');
 const { getIntSetting, setSetting } = require('../settings');
@@ -185,11 +185,12 @@ router.get('/resolver-health', requireAdmin, (req, res) => {
   res.json(getHealth());
 });
 
-// Cricbuzz match list — powers the optional per-contract match picker in the admin
-// contract builder. Returns live / upcoming / recently-completed matches. This is
-// purely additive — if the picker UI gets removed, this endpoint has no callers
-// and can be deleted without touching anything else.
-router.get('/cricbuzz-matches', requireAdmin, async (req, res) => {
+// Cricbuzz match list — powers the per-contract match picker in the contract
+// builder. Returns live / upcoming / recently-completed matches. Any logged-in
+// user can call this because (a) group admins also need to pick matches when
+// creating group contracts, and (b) the data here is already public on
+// Cricbuzz.com — no sensitive info.
+router.get('/cricbuzz-matches', requireAuth, async (req, res) => {
   try {
     const seriesFilter = req.query.series || null;
     const matches = await listLiveMatches({ seriesFilter });

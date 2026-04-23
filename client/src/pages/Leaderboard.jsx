@@ -1,22 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useGroup } from '../context/GroupContext';
 
 export default function Leaderboard() {
   const { user } = useAuth();
   const { on } = useSocket();
+  const { currentGroupId, currentGroup } = useGroup();
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('all');
 
   async function load(p = period) {
-    const r = await fetch(`/api/users/leaderboard?period=${p}`, { credentials: 'include' });
+    // Route by context: inside a group → /api/groups/:id/leaderboard, else
+    // the public endpoint. Shape is identical so the render code reuses it.
+    const url = currentGroupId
+      ? `/api/groups/${currentGroupId}/leaderboard?period=${p}&group=${currentGroupId}`
+      : `/api/users/leaderboard?period=${p}`;
+    const r = await fetch(url, { credentials: 'include' });
     const data = await r.json();
     setLeaders(data.leaderboard || []);
     setLoading(false);
   }
 
-  useEffect(() => { load(period); }, [period]);
+  useEffect(() => { setLoading(true); load(period); }, [period, currentGroupId]);
 
   // Refresh on balance updates
   useEffect(() => {
@@ -32,8 +39,12 @@ export default function Leaderboard() {
         <div className="p-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-start justify-between mb-3 gap-3">
             <div>
-              <h1 className="font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Starting balance: 🪙 10,000</p>
+              <h1 className="font-bold text-gray-900 dark:text-gray-100">
+                {currentGroup ? `${currentGroup.name} · Leaderboard` : 'Leaderboard'}
+              </h1>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                Starting balance: 🪙 {(currentGroup?.starting_coins ?? 10000).toLocaleString()}
+              </p>
             </div>
           </div>
           {/* Period tabs */}

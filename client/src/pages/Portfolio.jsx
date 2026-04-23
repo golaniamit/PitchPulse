@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useGroup, withGroup } from '../context/GroupContext';
 
 const SORTS = {
   newest:  { label: 'Newest',          fn: (a, b) => b.id - a.id },
@@ -14,6 +15,7 @@ const RECENT_DAYS = 30;
 export default function Portfolio() {
   const { user } = useAuth();
   const { on } = useSocket();
+  const { currentGroupId, currentGroup } = useGroup();
   const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [settling, setSettling] = useState(null);
@@ -21,15 +23,16 @@ export default function Portfolio() {
   const [showArchive, setShowArchive] = useState(false);
 
   async function load() {
-    const r = await fetch('/api/users/portfolio', { credentials: 'include' });
+    const r = await fetch(withGroup('/api/users/portfolio', currentGroupId), { credentials: 'include' });
     const d = await r.json();
     setPositions(d.positions || []);
     setLoading(false);
   }
 
   useEffect(() => {
+    setLoading(true);
     load();
-  }, []);
+  }, [currentGroupId]);
 
   // Refresh on live price or resolution updates
   useEffect(() => {

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { GroupProvider } from './context/GroupContext';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -14,8 +15,11 @@ import Verify from './pages/Verify';
 import ResetPassword from './pages/ResetPassword';
 import Settings from './pages/Settings';
 import TradeHistory from './pages/TradeHistory';
+import GroupJoin from './pages/GroupJoin';
+import GroupSettings from './pages/GroupSettings';
 import OnboardingTour, { useTour } from './components/OnboardingTour';
 import ResolutionToast from './components/ResolutionToast';
+import GroupNotificationToast from './components/GroupNotificationToast';
 
 function AppShell() {
   const { user, loading } = useAuth();
@@ -37,24 +41,29 @@ function AppShell() {
   if (!user) return <Login />;
 
   return (
-    <SocketProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-        {show && <OnboardingTour onClose={closeTour} />}
-        <ResolutionToast />
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home openTour={openTour} tourActive={show} />} />
-          <Route path="/contract/:id" element={<Contract />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/feedback" element={<Feedback />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/trades" element={<TradeHistory />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </div>
-    </SocketProvider>
+    <GroupProvider>
+      <SocketProvider>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+          {show && <OnboardingTour onClose={closeTour} />}
+          <ResolutionToast />
+          <GroupNotificationToast />
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<Home openTour={openTour} tourActive={show} />} />
+            <Route path="/contract/:id" element={<Contract />} />
+            <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/feedback" element={<Feedback />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/trades" element={<TradeHistory />} />
+            <Route path="/join/:code" element={<GroupJoin />} />
+            <Route path="/group/settings" element={<GroupSettings />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
+      </SocketProvider>
+    </GroupProvider>
   );
 }
 

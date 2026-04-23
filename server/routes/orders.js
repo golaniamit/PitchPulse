@@ -3,6 +3,7 @@ const db = require('../db');
 const { requireAuth, rateLimit } = require('../middleware');
 const { matchOrders, getOrderBook } = require('../engine/orderBook');
 const { broadcast } = require('../websocket');
+const { readBalance, adjustBalance, groupIdForContract, isMember } = require('../lib/context');
 
 const router = express.Router();
 
@@ -33,7 +34,16 @@ router.post('/', requireAuth, placeLimiter, (req, res) => {
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
   if (contract.status !== 'active') return res.status(400).json({ error: 'Contract is not active' });
 
+  // Gate group contracts to their members — non-members can't see them in the
+  // feed, but this also protects the direct-POST surface.
+  if (contract.group_id && !isMember(req.session.userId, contract.group_id)) {
+    return res.status(403).json({ error: 'Not a member of this contract\'s group' });
+  }
+
+  const gid = contract.group_id || null;
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  // Balance for cost calculations is now context-sensitive.
+  const ctxBalance = readBalance(user.id, gid);
 
   // Square-off: cancel user's own resting orders on the opposite side that
   // would be crossed by this new order (price + resting > 100). Without this,
@@ -64,16 +74,16 @@ router.post('/', requireAuth, placeLimiter, (req, res) => {
   }
 
   const costForRemainder = side === 'YES' ? price * remainingQty : (100 - price) * remainingQty;
-  if (user.balance + plannedRefund < costForRemainder) {
+  if (ctxBalance + plannedRefund < costForRemainder) {
     return res.status(400).json({ error: 'Insufficient balance' });
   }
 
-  // Execute the planned cancellations.
+  // Execute the planned cancellations (refund the right wallet).
   const squaredOff = [];
   for (const p of plan) {
     const { order: r, cancelQty, fullCancel } = p;
     const refund = cancelQty * (r.side === 'YES' ? r.price : (100 - r.price));
-    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(refund, user.id);
+    adjustBalance(user.id, gid, refund);
     if (fullCancel) {
       db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(r.id);
     } else {
@@ -84,15 +94,15 @@ router.post('/', requireAuth, placeLimiter, (req, res) => {
 
   // If the new order is fully absorbed by square-offs, don't register it as a bet.
   if (remainingQty <= 0) {
-    const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id).balance;
-    broadcast({ type: 'balance_update', userId: user.id, newBalance });
+    const newBalance = readBalance(user.id, gid);
+    broadcast({ type: 'balance_update', userId: user.id, newBalance, groupId: gid });
     const book = getOrderBook(contract_id);
-    broadcast({ type: 'orderbook_update', contractId: contract_id, bids: book.bids, asks: book.asks });
+    broadcast({ type: 'orderbook_update', contractId: contract_id, bids: book.bids, asks: book.asks, groupId: gid });
     return res.status(200).json({ squared_off: squaredOff, order: null, newBalance });
   }
 
   // Deduct balance (locked in order) for the remaining quantity
-  db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(costForRemainder, user.id);
+  adjustBalance(user.id, gid, -costForRemainder);
 
   // Insert order
   const result = db.prepare(`
@@ -102,15 +112,15 @@ router.post('/', requireAuth, placeLimiter, (req, res) => {
 
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(result.lastInsertRowid);
 
-  // Broadcast updated order book before matching
+  // Broadcast updated order book before matching (group-scoped).
   const bookBefore = getOrderBook(contract_id);
-  broadcast({ type: 'orderbook_update', contractId: contract_id, bids: bookBefore.bids, asks: bookBefore.asks });
+  broadcast({ type: 'orderbook_update', contractId: contract_id, bids: bookBefore.bids, asks: bookBefore.asks, groupId: gid });
 
   // Attempt to match
   matchOrders(contract_id);
 
-  const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id).balance;
-  broadcast({ type: 'balance_update', userId: user.id, newBalance });
+  const newBalance = readBalance(user.id, gid);
+  broadcast({ type: 'balance_update', userId: user.id, newBalance, groupId: gid });
 
   res.status(201).json({ order, newBalance, squared_off: squaredOff });
 });
@@ -122,17 +132,17 @@ router.delete('/:id', requireAuth, cancelLimiter, (req, res) => {
   if (order.user_id !== req.session.userId) return res.status(403).json({ error: 'Not your order' });
   if (!['open', 'partial'].includes(order.status)) return res.status(400).json({ error: 'Order cannot be cancelled' });
 
+  const gid = groupIdForContract(order.contract_id);
   const remaining = order.quantity - order.quantity_filled;
   const refund = order.side === 'YES' ? remaining * order.price : remaining * (100 - order.price);
 
-  db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(refund, order.user_id);
+  const newBalance = adjustBalance(order.user_id, gid, refund);
   db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(order.id);
 
-  const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(order.user_id).balance;
-  broadcast({ type: 'balance_update', userId: order.user_id, newBalance });
+  broadcast({ type: 'balance_update', userId: order.user_id, newBalance, groupId: gid });
 
   const book = getOrderBook(order.contract_id);
-  broadcast({ type: 'orderbook_update', contractId: order.contract_id, bids: book.bids, asks: book.asks });
+  broadcast({ type: 'orderbook_update', contractId: order.contract_id, bids: book.bids, asks: book.asks, groupId: gid });
 
   res.json({ ok: true, newBalance });
 });

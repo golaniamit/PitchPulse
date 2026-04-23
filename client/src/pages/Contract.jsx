@@ -6,6 +6,7 @@ import OrderBook from '../components/OrderBook';
 import TradePanel from '../components/TradePanel';
 import MyOpenOrders from '../components/MyOpenOrders';
 import InfoTooltip from '../components/InfoTooltip';
+import AdminPositionsPanel from '../components/AdminPositionsPanel';
 
 export default function Contract() {
   const { id } = useParams();
@@ -108,7 +109,22 @@ export default function Contract() {
             </div>
           </div>
         )}
+
+        {/* Resolution reason (#3.1) — shown on any resolved contract that
+            carries a reason. Gives members the audit trail. */}
+        {contract.status === 'resolved' && contract.resolve_reason && (
+          <div className="mt-2 flex items-start gap-2 py-2.5 px-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">
+            <span className="text-base flex-shrink-0">⚖️</span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wide">Admin's reasoning</p>
+              <p className="text-xs text-blue-900 dark:text-blue-100 mt-0.5 leading-snug italic">"{contract.resolve_reason}"</p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Admin positions visibility (#3.2) — group contracts only */}
+      {contract.group_id && <AdminPositionsPanel contractId={contract.id} />}
 
       {/* Chart — only render for non-draft contracts */}
       {contract.status !== 'draft' && (

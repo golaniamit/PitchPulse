@@ -215,6 +215,65 @@ db.exec(`
   );
 `);
 
+// ─── Friends-groups feature ─────────────────────────────────────────────────
+// A group is a private prediction-market bubble. Its creator is the only admin
+// at v1 (can be transferred later). Every member gets a fresh per-group wallet
+// (starting_coins) that is ENTIRELY separate from the public users.balance.
+// Group contracts (contracts.group_id = groups.id) are only visible to members
+// of that group; public contracts keep group_id NULL and work exactly as today.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    creator_id INTEGER NOT NULL,
+    invite_code TEXT NOT NULL UNIQUE,
+    starting_coins INTEGER NOT NULL DEFAULT 10000,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (creator_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS group_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',       -- 'admin' or 'member'
+    balance INTEGER NOT NULL DEFAULT 0,         -- per-group wallet
+    balance_at_day_start INTEGER,               -- for today-leaderboard
+    snapshot_date TEXT,                         -- YYYY-MM-DD of last snapshot
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(group_id, user_id),
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)  REFERENCES users(id)  ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
+  CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+`);
+
+// Nullable group_id on contracts. Null = public marketplace (everyone); set =
+// visible only to members of that group. Everything downstream (orders,
+// trades, positions) inherits context from their contract, so no schema
+// change is needed on those tables.
+try { db.exec(`ALTER TABLE contracts ADD COLUMN group_id INTEGER REFERENCES groups(id)`); } catch (_) {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_contracts_group ON contracts(group_id)`); } catch (_) {}
+
+// Settlement transparency — admin writes a one-liner when resolving manually.
+// Surfaces in the resolution toast + on the contract detail page so members
+// see why the call went the way it did. Null for auto-resolved (the resolver
+// has its own last_eval_reason for that).
+try { db.exec(`ALTER TABLE contracts ADD COLUMN resolve_reason TEXT`); } catch (_) {}
+
+// Per-member notification toggle for group activity. Default ON for admin
+// (group creator auto-joins with this = 1), OFF for members unless they opt
+// in during the join flow.
+try { db.exec(`ALTER TABLE group_members ADD COLUMN notify_enabled INTEGER DEFAULT 0`); } catch (_) {}
+
+// Season round counter. Incremented when an admin clicks "Close this season
+// and start fresh". Active contracts get their round stamped at creation;
+// reset wipes the group's active orders + positions but preserves resolved
+// contract history (so members can still audit past seasons).
+try { db.exec(`ALTER TABLE groups ADD COLUMN current_round INTEGER DEFAULT 1`); } catch (_) {}
+try { db.exec(`ALTER TABLE contracts ADD COLUMN round_number INTEGER`); } catch (_) {}
+
 // Grandfather only old accounts (no email = created before verification was added)
 // Never touch new registrations that are intentionally unverified
 db.exec(`UPDATE users SET is_verified = 1 WHERE email IS NULL`);

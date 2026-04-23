@@ -56,6 +56,7 @@ app.use('/api/push', pushRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/players', playerRoutes);
+app.use('/api/groups', require('./routes/groups'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
