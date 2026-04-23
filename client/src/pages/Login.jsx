@@ -231,7 +231,7 @@ export default function Login() {
 
   // ── Main login / register form ─────────────────────────────────
   return (
-    <div className="min-h-screen bg-navy-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-navy-800 flex items-center justify-center px-4 pt-4 pb-20 sm:pb-4">
       <div className="w-full max-w-sm">
 
         {/* Logo + Wordmark */}
@@ -264,8 +264,7 @@ export default function Login() {
             <span className="text-base sm:text-xl">🪙</span>
           </div>
           <div className="text-center py-1.5 sm:py-2.5 px-3">
-            <p className="text-white/80 text-xs sm:text-sm font-semibold">Zero real money · 10,000 free coins to start</p>
-            <p className="hidden sm:block text-white/45 text-xs mt-0.5">Zero financial risk. Zero real money.</p>
+            <p className="text-white text-xs sm:text-sm font-bold">Zero real money · Zero financial risk</p>
           </div>
         </div>
 
