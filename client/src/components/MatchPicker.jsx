@@ -54,15 +54,21 @@ export default function MatchPicker({ value, onChange, seriesFilter = 'Indian Pr
             : <span className="font-normal normal-case text-gray-400">(optional — tags this contract to a specific Cricbuzz match)</span>
           }
           {required && (
-            <span className="font-normal normal-case text-gray-400 ml-1">
+            // Desktop: spell out why Match is required. Mobile: the red *
+            // already signals required; the explainer was wrapping the
+            // label row onto two lines next to the Show-all / Refresh pair.
+            <span className="hidden sm:inline font-normal normal-case text-gray-400 ml-1">
               · required for auto-resolve
             </span>
           )}
         </p>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setShowAll(s => !s)}
-            className="text-[11px] text-gray-500 hover:text-navy-800 underline">
-            {showAll ? `Show ${seriesFilter} only` : 'Show all series'}
+            className="text-[11px] text-gray-500 hover:text-navy-800 underline whitespace-nowrap">
+            {showAll
+              ? <><span className="sm:hidden">{seriesFilter} only</span><span className="hidden sm:inline">Show {seriesFilter} only</span></>
+              : <><span className="sm:hidden">All series</span><span className="hidden sm:inline">Show all series</span></>
+            }
           </button>
           <button type="button" onClick={() => load(!showAll)}
             className="text-[11px] text-gray-500 hover:text-navy-800 underline">

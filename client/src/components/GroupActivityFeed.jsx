@@ -91,7 +91,10 @@ function Row({ avatar, color, ts, children }) {
 export default function GroupActivityFeed({ groupId }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false); // mobile-only collapse
+  // Mobile-only — default shows just the top 3 events so the card doesn't
+  // push contracts below the fold. "Show all" expands to the full 20.
+  // Desktop always shows 20 via CSS (no state needed there).
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const { on } = useSocket();
 
   async function load() {
@@ -124,29 +127,47 @@ export default function GroupActivityFeed({ groupId }) {
 
   if (!groupId) return null;
 
+  // Mobile: render only the first 3 events by default, all up to 20 when
+  // expanded. Desktop is unaffected — always shows up to 20.
+  const mobileLimit = mobileExpanded ? 20 : 3;
+  const desktopLimit = 20;
+  const visibleOnMobile = events.slice(0, mobileLimit);
+  const extraOnDesktop = events.slice(mobileLimit, desktopLimit);
+  const hasMoreOnMobile = events.length > 3;
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-100 dark:border-gray-700 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-100 dark:border-gray-700 p-3 sm:p-4">
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
           Recent activity
           <span className="text-[10px] font-normal text-slate-400">live</span>
         </p>
-        {/* Mobile collapse toggle — desktop always shows expanded. */}
-        <button
-          onClick={() => setCollapsed(c => !c)}
-          className="sm:hidden text-[10px] text-slate-500 underline"
-        >
-          {collapsed ? 'Show' : 'Hide'}
-        </button>
       </div>
       {loading ? (
         <p className="text-xs text-slate-400">Loading…</p>
       ) : events.length === 0 ? (
         <p className="text-xs text-slate-400">Nothing's happened yet. Invite friends and post some contracts.</p>
       ) : (
-        <div className={`space-y-3 ${collapsed ? 'hidden sm:block' : ''}`}>
-          {events.slice(0, collapsed ? 3 : 20).map((ev, i) => <Event key={i} ev={ev} />)}
-        </div>
+        <>
+          <div className="space-y-3">
+            {visibleOnMobile.map((ev, i) => <Event key={i} ev={ev} />)}
+            {/* Desktop-only: any events beyond the mobile's 3-row default
+                render here so desktop keeps its full 20-row view. */}
+            {extraOnDesktop.length > 0 && (
+              <div className="hidden sm:contents space-y-3">
+                {extraOnDesktop.map((ev, i) => <Event key={`d-${i}`} ev={ev} />)}
+              </div>
+            )}
+          </div>
+          {hasMoreOnMobile && (
+            <button
+              onClick={() => setMobileExpanded(e => !e)}
+              className="sm:hidden mt-3 text-[11px] font-semibold text-navy-800 dark:text-blue-400 hover:underline"
+            >
+              {mobileExpanded ? 'Show less' : `Show all (${events.length})`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );

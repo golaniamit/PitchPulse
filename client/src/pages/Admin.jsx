@@ -177,28 +177,35 @@ function PollIntervalControl() {
   const canApply = draftNum >= 1 && draftNum !== mins && !saving;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-gray-900 dark:text-gray-100">Resolver poll</h2>
-        <span className="text-xs text-gray-500 dark:text-gray-400">every {mins ?? '…'} min</span>
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 sm:p-5 space-y-2 sm:space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        {/* Shorter title on mobile so "every N min" stays on the same line
+            in the narrower half-column. */}
+        <h2 className="font-bold text-gray-900 dark:text-gray-100">
+          <span className="sm:hidden">Poll</span>
+          <span className="hidden sm:inline">Resolver poll</span>
+        </h2>
+        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">every {mins ?? '…'} min</span>
       </div>
       <div className="flex items-center gap-2">
         <input
           type="number" min="1" value={draft}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && canApply) apply(); }}
-          className="w-20 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-navy-800/30"
+          className="w-14 sm:w-20 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-navy-800/30"
         />
         <span className="text-xs text-gray-500 dark:text-gray-400">min</span>
         <button
           onClick={apply}
           disabled={!canApply}
-          className="ml-auto text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 disabled:opacity-40 transition-colors"
+          className="ml-auto text-xs bg-navy-800 text-white px-2.5 sm:px-3 py-1.5 rounded-lg hover:bg-navy-700 disabled:opacity-40 transition-colors"
         >
-          {saving ? 'Saving…' : 'Apply'}
+          {saving ? '…' : 'Apply'}
         </button>
       </div>
-      <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
+      {/* Explainer is desktop-only — on mobile the control is self-evident
+          and the 3-line paragraph ate half the card. */}
+      <p className="hidden sm:block text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
         Widen pre-match; tighten once play starts. Takes effect immediately.
       </p>
     </div>
@@ -245,53 +252,70 @@ function BotsControl() {
   }
 
   const LABELS = [
-    { n: 0, label: 'Off', desc: 'No new bot trades' },
-    { n: 1, label: 'Low', desc: 'Sparse background activity' },
-    { n: 2, label: 'Moderate', desc: 'Default dev behaviour' },
-    { n: 3, label: 'High', desc: 'Frequent orders — for empty markets' },
+    // labelShort fits the 4-button grid when Bots sits in a half-width
+    // column on mobile (see Admin.jsx outer grid). "Moderate" doesn't fit
+    // there, so we render the abbreviated form below sm breakpoint.
+    { n: 0, label: 'Off',      labelShort: 'Off',  desc: 'No new bot trades' },
+    { n: 1, label: 'Low',      labelShort: 'Low',  desc: 'Sparse background activity' },
+    { n: 2, label: 'Moderate', labelShort: 'Med',  desc: 'Default dev behaviour' },
+    { n: 3, label: 'High',     labelShort: 'High', desc: 'Frequent orders — for empty markets' },
   ];
 
   const current = LABELS.find(l => l.n === intensity);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 sm:p-5 space-y-2 sm:space-y-3">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="font-bold text-gray-900 dark:text-gray-100">Bots</h2>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${
+        <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
           intensity === 0
             ? 'text-gray-500 bg-gray-100 dark:bg-gray-700 dark:text-gray-300'
             : 'text-green-700 bg-green-50 dark:bg-green-900/30 dark:text-green-300'
         }`}>
-          {intensity === null ? '...' : (intensity === 0 ? 'Dormant' : `Active — ${current?.label}`)}
+          {/* Short form on mobile so the pill doesn't wrap in the narrow
+              half-column. "Active — Moderate" becomes just "Med". */}
+          <span className="sm:hidden">
+            {intensity === null ? '…' : (intensity === 0 ? 'Off' : current?.labelShort)}
+          </span>
+          <span className="hidden sm:inline">
+            {intensity === null ? '...' : (intensity === 0 ? 'Dormant' : `Active — ${current?.label}`)}
+          </span>
         </span>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-1 sm:gap-2">
         {LABELS.map(l => (
           <button
             key={l.n}
             onClick={() => setLevel(l.n)}
             disabled={saving || intensity === null}
-            className={`rounded-xl border p-2.5 text-center transition-colors ${
+            className={`rounded-xl border p-1.5 sm:p-2.5 text-center transition-colors ${
               intensity === l.n
                 ? 'border-navy-800 bg-navy-800 text-white'
                 : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 text-gray-700 dark:text-gray-200'
             } disabled:opacity-50`}
           >
-            <div className="text-lg font-bold">{l.n}</div>
-            <div className="text-xs font-medium leading-tight">{l.label}</div>
+            <div className="text-base sm:text-lg font-bold">{l.n}</div>
+            <div className="text-[10px] sm:text-xs font-medium leading-tight">
+              <span className="sm:hidden">{l.labelShort}</span>
+              <span className="hidden sm:inline">{l.label}</span>
+            </div>
           </button>
         ))}
       </div>
 
+      {/* Description and stats: hidden on mobile where the card sits in a
+          half-width column and there's no room. Admin can widen the window
+          or flip to desktop to inspect. The pill row above is the only
+          interactive control — the rest is informational. */}
       {current && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+        <p className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 px-1">
           {current.desc}
         </p>
       )}
 
       {stats && (
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2 text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
+        <div className="hidden sm:flex bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap gap-x-4 gap-y-1">
           <span><span className="font-semibold text-gray-700 dark:text-gray-200">{stats.ordersLastHour}</span> orders / last hour</span>
           <span><span className="font-semibold text-gray-700 dark:text-gray-200">{stats.activeContracts}</span> active contracts</span>
           <span><span className="font-semibold text-gray-700 dark:text-gray-200">{stats.botCount}</span> bots · {stats.totalBalance.toLocaleString()} coins</span>
@@ -323,13 +347,33 @@ function UserStats() {
   const names  = stats?.activeUsernames || [];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 sm:p-5 space-y-2 sm:space-y-3">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="font-bold text-gray-900 dark:text-gray-100">Players</h2>
-        <span className="text-xs text-gray-400 dark:text-gray-500">live · refreshes every 5s</span>
+        {/* "live · refreshes every 5s" is overhead on mobile — the green
+            pulse dot on the Online counter already signals liveness. */}
+        <span className="hidden sm:inline text-xs text-gray-400 dark:text-gray-500">live · refreshes every 5s</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Mobile: no bordered cells — labels and numbers inline on a single
+          row so the card stays short. Desktop: keep the two bordered stat
+          cells as they were. */}
+      <div className="sm:hidden flex items-center justify-around gap-2">
+        <div className="flex flex-col items-center">
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{stats === null ? '…' : active}</span>
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${active > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-300 dark:bg-gray-600'}`} />
+          </div>
+          <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Online</div>
+        </div>
+        <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" />
+        <div className="flex flex-col items-center">
+          <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{stats === null ? '…' : total}</span>
+          <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</div>
+        </div>
+      </div>
+
+      <div className="hidden sm:grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-3">
           <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Online now</div>
           <div className="mt-1 flex items-baseline gap-2">
@@ -344,7 +388,7 @@ function UserStats() {
       </div>
 
       {names.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+        <div className="hidden sm:block bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
           <span className="font-semibold text-gray-700 dark:text-gray-200">Online:</span>{' '}
           {names.join(', ')}
         </div>
@@ -620,17 +664,29 @@ export default function Admin() {
         {/* Context banner when operating inside a group — makes it unambiguous
             that contracts built here are private to this group, not public. */}
         {currentGroup && (
-          <div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 px-4 py-3 text-sm text-purple-900 dark:text-purple-200">
-            <span className="font-semibold">👥 Group mode — {currentGroup.name}.</span>{' '}
-            Contracts you create here are private to this group's {currentGroup.member_count} members.
+          // Mobile keeps only the essential flag — "Group mode" + name. The
+          // explainer ("private to N members") is desktop-only; it was
+          // pushing the Create Contract card below the fold on phones.
+          // Also fixes the "1 members" singular grammar the old copy had.
+          <div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 px-3 py-2 sm:px-4 sm:py-3 text-sm text-purple-900 dark:text-purple-200">
+            <span className="font-semibold">👥 Group mode — {currentGroup.name}.</span>
+            <span className="hidden sm:inline">
+              {' '}Contracts you create here are private to this group's {currentGroup.member_count} {currentGroup.member_count === 1 ? 'member' : 'members'}.
+            </span>
           </div>
         )}
 
-        {/* Bots + resolver poll + live player count — three cards side by side on desktop.
-            Only the public-market admin sees these; group admins don't run the resolver. */}
+        {/* Bots + resolver poll + live player count.
+            Mobile: 2-col grid — Bots takes the left column across two rows
+            (it has the most content), Resolver (top-right) and Players
+            (bottom-right) stack on the right so all three fit in two rows
+            of screen height instead of three. md+: 2 cols, lg: 3 cols
+            side by side, restoring the previous desktop layout. */}
         {isPublicAdmin && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <BotsControl />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
+            <div className="row-span-2 md:row-span-1">
+              <BotsControl />
+            </div>
             <PollIntervalControl />
             <UserStats />
           </div>
@@ -671,19 +727,21 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Status filter tabs */}
-          <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-4">
+          {/* Status filter tabs. Mobile drops the count so all 5 labels
+              ("Active / Draft / Resolved / Cancelled / All") fit cleanly
+              in one row without truncation. The count returns on sm+. */}
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-900 rounded-xl p-1 mb-4">
             {ADMIN_TABS.map(t => (
               <button
                 key={t}
                 onClick={() => setAdminTab(t)}
-                className={`flex-1 min-w-[70px] py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                className={`flex-1 min-w-0 py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-semibold capitalize transition-colors ${
                   adminTab === t
                     ? 'bg-white dark:bg-gray-700 text-navy-800 dark:text-white shadow-sm'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
               >
-                {t} <span className="font-normal text-gray-400">({tabCounts[t]})</span>
+                {t}<span className="hidden sm:inline font-normal text-gray-400"> ({tabCounts[t]})</span>
               </button>
             ))}
           </div>

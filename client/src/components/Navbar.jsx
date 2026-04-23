@@ -147,9 +147,13 @@ export default function Navbar() {
             horizontal room in the nav that the new group-context tabs need. */}
         <div className="flex items-center gap-3">
 
-          {/* Connection dot */}
+          {/* Connection dot — desktop only. On mobile it was sitting between
+              the group switcher and the coin chip with nothing to anchor it,
+              which read as visual noise. When the socket drops, the UI itself
+              surfaces the failure (toasts, stale prices) — the dot was
+              belt-and-braces. */}
           <div
-            className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}
+            className={`hidden sm:block w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}
             title={connected ? 'Live' : 'Reconnecting'}
           />
 

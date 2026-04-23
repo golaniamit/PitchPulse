@@ -91,9 +91,13 @@ export default function Leaderboard() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="font-bold text-gray-900 dark:text-gray-100">🪙 {u.balance.toLocaleString()}</p>
+                  {/* Period suffix ("today" / "all-time") is desktop-only —
+                      on mobile the period tab at the top of the card already
+                      says which window the PnL is against, and repeating it
+                      next to every row added clutter without new info. */}
                   <p className={`text-xs font-medium ${pnl > 0 ? 'text-yes' : pnl < 0 ? 'text-no' : 'text-gray-400'}`}>
                     {pnl > 0 ? '+' : ''}{pnl}
-                    <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">{period === 'today' ? 'today' : 'all-time'}</span>
+                    <span className="hidden sm:inline text-gray-400 dark:text-gray-500 font-normal ml-1">{period === 'today' ? 'today' : 'all-time'}</span>
                   </p>
                 </div>
               </div>

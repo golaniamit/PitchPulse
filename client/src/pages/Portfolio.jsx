@@ -5,9 +5,11 @@ import { useSocket } from '../context/SocketContext';
 import { useGroup, withGroup } from '../context/GroupContext';
 
 const SORTS = {
-  newest:  { label: 'Newest',          fn: (a, b) => b.id - a.id },
-  biggest: { label: 'Biggest stake',   fn: (a, b) => (b.avg_price * b.quantity) - (a.avg_price * a.quantity) },
-  upside:  { label: 'Biggest upside',  fn: (a, b) => (b.quantity * 100 - b.avg_price * b.quantity) - (a.quantity * 100 - a.avg_price * a.quantity) },
+  // labelShort is used below sm breakpoint so three sort pills fit in a
+  // 375px-wide row next to the "My open bets" heading without wrapping.
+  newest:  { label: 'Newest',          labelShort: 'Newest', fn: (a, b) => b.id - a.id },
+  biggest: { label: 'Biggest stake',   labelShort: 'Stake',  fn: (a, b) => (b.avg_price * b.quantity) - (a.avg_price * a.quantity) },
+  upside:  { label: 'Biggest upside',  labelShort: 'Upside', fn: (a, b) => (b.quantity * 100 - b.avg_price * b.quantity) - (a.quantity * 100 - a.avg_price * a.quantity) },
 };
 
 const RECENT_DAYS = 30;
@@ -128,7 +130,10 @@ export default function Portfolio() {
                       ? 'bg-white dark:bg-gray-700 text-navy-800 dark:text-white shadow-sm'
                       : 'text-gray-500 dark:text-gray-400'
                   }`}
-                >{s.label}</button>
+                >
+                  <span className="sm:hidden">{s.labelShort}</span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                </button>
               ))}
             </div>
           )}
@@ -185,11 +190,14 @@ export default function Portfolio() {
                   </div>
                 </div>
 
-                {/* Mini sentiment bar */}
+                {/* Mini sentiment bar. On mobile drop the "Market sentiment"
+                    left label — the right-side "N% YES" readout plus the
+                    bar itself are enough, and the label was eating a row per
+                    open-bet card. */}
                 <div>
-                  <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mb-1">
-                    <span>Market sentiment</span>
-                    <span>{currentSentiment}% on YES</span>
+                  <div className="flex justify-end sm:justify-between text-xs text-gray-400 dark:text-gray-500 mb-1">
+                    <span className="hidden sm:inline">Market sentiment</span>
+                    <span>{currentSentiment}% <span className="hidden sm:inline">on </span>YES</span>
                   </div>
                   <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
@@ -206,8 +214,11 @@ export default function Portfolio() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Settle now → get back <span className="font-semibold text-gray-700 dark:text-gray-200">🪙 {settleReturn}</span>
                   </p>
+                  {/* "vs what you staked" is dropped on mobile — the sign
+                      and the green/red colour already convey P&L direction. */}
                   <p className={`text-xs font-semibold mt-0.5 ${settlePnl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {settlePnl >= 0 ? `+${settlePnl} vs what you staked` : `${settlePnl} vs what you staked`}
+                    {settlePnl >= 0 ? `+${settlePnl}` : `${settlePnl}`}
+                    <span className="hidden sm:inline"> vs what you staked</span>
                   </p>
                 </div>
                 <button

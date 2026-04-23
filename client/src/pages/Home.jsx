@@ -79,7 +79,6 @@ export default function Home({ openTour, tourActive }) {
   const [contracts, setContracts] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
   const [sort, setSort] = useState('newest');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -209,8 +208,7 @@ export default function Home({ openTour, tourActive }) {
     return [...map.entries()].map(([id, label]) => ({ id, label }));
   }, [contracts, liveMatches]);
 
-  // ── Display list (tab → filters → sort → search) ────────────────────
-  const q = search.trim().toLowerCase();
+  // ── Display list (tab → filters → sort) ────────────────────
   const displayList = useMemo(() => {
     if (tourActive) return DEMO_CONTRACTS;
     let list = tabBuckets[tab] || [];
@@ -219,9 +217,8 @@ export default function Home({ openTour, tourActive }) {
       const bucket = new Set(TYPE_BUCKETS[filterType]);
       list = list.filter(c => bucket.has(c.type));
     }
-    if (q) list = list.filter(c => c.title.toLowerCase().includes(q));
     return list.slice().sort(SORTS[sort].fn);
-  }, [tourActive, tabBuckets, tab, filterMatch, filterType, sort, q]);
+  }, [tourActive, tabBuckets, tab, filterMatch, filterType, sort]);
 
   // Subtitle rule: Live tab shows team shortnames when a match is in progress,
   // everyone else shows their count. Keeps line-2 content uniform in length.
@@ -240,23 +237,33 @@ export default function Home({ openTour, tourActive }) {
           the user creates / joins their first group. Doesn't render inside a
           group context (you're already using the feature). */}
       {showDiscovery && (
-        <div className="mb-4 bg-gradient-to-r from-purple-50 via-purple-50 to-amber-50 dark:from-purple-900/20 dark:via-purple-900/20 dark:to-amber-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
-          <div className="text-2xl sm:text-3xl flex-shrink-0">👥</div>
+        // Mobile: a single-line flag — emoji + short hook + CTA + dismiss,
+        // tight padding so it doesn't dominate the viewport above the market
+        // list. Desktop: the fuller two-line pitch with its own-markets /
+        // own-coins / own-leaderboard subtitle.
+        <div className="mb-4 bg-gradient-to-r from-purple-50 via-purple-50 to-amber-50 dark:from-purple-900/20 dark:via-purple-900/20 dark:to-amber-900/20 border border-purple-200 dark:border-purple-800 rounded-xl px-3 py-2 sm:p-4 flex items-center gap-2 sm:gap-4">
+          <div className="text-xl sm:text-3xl flex-shrink-0">👥</div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-slate-900 dark:text-white text-sm leading-tight">Play with your friends</p>
-            <p className="text-[11px] sm:text-xs text-slate-600 dark:text-gray-300 mt-0.5 leading-snug">
+            <p className="font-bold text-slate-900 dark:text-white text-sm leading-tight">
+              <span className="sm:hidden">Play with friends</span>
+              <span className="hidden sm:inline">Play with your friends</span>
+            </p>
+            {/* Subtitle hidden on mobile — the title + button already convey
+                the offer, and the 3-line paragraph was turning this into a
+                box rather than a flag. */}
+            <p className="hidden sm:block text-xs text-slate-600 dark:text-gray-300 mt-0.5 leading-snug">
               Create a private group with its own markets, its own coins, and its own leaderboard.
             </p>
           </div>
           <button
             onClick={() => setCreateOpen(true)}
-            className="bg-navy-800 text-white text-xs font-semibold px-2.5 sm:px-3 py-2 rounded-lg hover:bg-navy-700 flex-shrink-0 whitespace-nowrap"
+            className="bg-navy-800 text-white text-xs font-semibold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg hover:bg-navy-700 flex-shrink-0 whitespace-nowrap"
           >
             + Create group
           </button>
           <button
             onClick={dismissDiscovery}
-            className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-sm flex-shrink-0 w-6 h-6 rounded hover:bg-white/50 dark:hover:bg-white/10"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-sm flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded hover:bg-white/50 dark:hover:bg-white/10"
             title="Hide for 7 days"
           >✕</button>
         </div>
@@ -292,10 +299,13 @@ export default function Home({ openTour, tourActive }) {
             );
           })}
         </div>
+        {/* Re-tour button — desktop only. On mobile the four tabs get the
+            full row width; first-time users still get the tour auto-triggered
+            via users.tour_seen=0. */}
         <button
           onClick={openTour}
           title="How it works"
-          className="flex-shrink-0 w-9 self-center h-9 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center justify-center text-sm font-bold"
+          className="hidden sm:flex flex-shrink-0 w-9 self-center h-9 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors items-center justify-center text-sm font-bold"
         >?</button>
       </div>
 
@@ -306,7 +316,7 @@ export default function Home({ openTour, tourActive }) {
             <span className="font-semibold">Sort:</span>
             <select
               value={sort} onChange={e => setSort(e.target.value)}
-              className="bg-transparent text-navy-800 dark:text-white font-semibold focus:outline-none cursor-pointer border-none -mx-1"
+              className="bg-transparent text-navy-800 dark:text-white font-semibold focus:outline-none cursor-pointer border-none pl-1 pr-0"
             >
               {Object.entries(SORTS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
             </select>
@@ -314,14 +324,14 @@ export default function Home({ openTour, tourActive }) {
           <button
             onClick={() => setFilterOpen(o => !o)}
             className={`px-2 py-1 rounded-md flex items-center gap-1 transition-colors ${
-              filterOpen || filterMatch !== 'all' || filterType !== 'all' || search
+              filterOpen || filterMatch !== 'all' || filterType !== 'all'
                 ? 'bg-navy-800 text-white dark:bg-white dark:text-navy-800'
                 : 'text-gray-500 hover:text-navy-800 dark:text-gray-400 dark:hover:text-white'
             }`}
             aria-label="Filter markets"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-            <span>Filter{(filterMatch !== 'all' || filterType !== 'all' || search) ? ' · on' : ''}</span>
+            <span>Filter{(filterMatch !== 'all' || filterType !== 'all') ? ' · on' : ''}</span>
           </button>
         </div>
       )}
@@ -329,23 +339,12 @@ export default function Home({ openTour, tourActive }) {
       {/* Filter panel (collapsible). Search lives inside so the default view
           isn't cluttered with an always-on search bar. */}
       {!tourActive && filterOpen && (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-3 space-y-3">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none text-sm">⌕</span>
-            <input
-              type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search markets…"
-              className="w-full pl-8 pr-8 py-1.5 rounded-md bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-800/30"
-            />
-            {search && (
-              <button onClick={() => setSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
-                      aria-label="Clear search">✕</button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        // Two dropdowns side-by-side. Labels hidden on mobile — the
+        // placeholder values ("All matches" / "All types") describe them.
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 sm:p-3 mb-3 space-y-2 sm:space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Match</p>
+              <p className="hidden sm:block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Match</p>
               <select value={filterMatch} onChange={e => setFilterMatch(e.target.value)}
                       className="w-full text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-2 py-1.5">
                 <option value="all">All matches</option>
@@ -353,7 +352,7 @@ export default function Home({ openTour, tourActive }) {
               </select>
             </div>
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Type</p>
+              <p className="hidden sm:block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Type</p>
               <select value={filterType} onChange={e => setFilterType(e.target.value)}
                       className="w-full text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-2 py-1.5">
                 <option value="all">All types</option>
@@ -365,8 +364,8 @@ export default function Home({ openTour, tourActive }) {
               </select>
             </div>
           </div>
-          {(filterMatch !== 'all' || filterType !== 'all' || search) && (
-            <button onClick={() => { setFilterMatch('all'); setFilterType('all'); setSearch(''); }}
+          {(filterMatch !== 'all' || filterType !== 'all') && (
+            <button onClick={() => { setFilterMatch('all'); setFilterType('all'); }}
                     className="text-xs text-gray-500 dark:text-gray-400 hover:text-navy-800 dark:hover:text-white">
               Reset filters
             </button>
@@ -381,8 +380,7 @@ export default function Home({ openTour, tourActive }) {
       {!tourActive && !loading && displayList.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-400 text-sm">
-            {q ? `No markets match "${search}"` :
-             tab === 'live' ? 'No contracts for the current live match' :
+            {tab === 'live' ? 'No contracts for the current live match' :
              tab === 'season' ? 'No season contracts yet' :
              tab === 'resolved' ? 'No resolved contracts in the recent window' :
              'No contracts'}
@@ -406,7 +404,13 @@ export default function Home({ openTour, tourActive }) {
               ))}
             </div>
           </div>
-          <div className="order-first lg:order-none">
+          {/* Activity feed — desktop only. On mobile it pushed markets
+              below the fold without adding real information: push
+              notifications already surface "friend posted a contract" /
+              "contract resolved" events. If mobile access is ever needed,
+              add a dedicated "/group/activity" route or a bottom sheet
+              rather than bringing the rail back above the trade list. */}
+          <div className="hidden lg:block order-first lg:order-none">
             <GroupActivityFeed groupId={currentGroupId} />
           </div>
         </div>
