@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { SubjectSlot, ContextBadge, TYPE_META } from './ContractCard';
 import MatchPicker from './MatchPicker';
+import { useGroup, withGroup } from '../context/GroupContext';
 
 // ── Static maps ─────────────────────────────────────────────────────
 
 const PHASES = [
-  { id: 'over',      label: 'Specific over' },
-  { id: 'by_over',   label: 'By over' },
-  { id: 'powerplay', label: 'Powerplay' },
-  { id: 'death',     label: 'Death overs' },
-  { id: 'match',     label: 'Match-long' },
-  { id: 'season',    label: 'Season-long' },
+  { id: 'over',      label: 'Single over' },
+  { id: 'by_over',   label: 'By end of over' },
+  { id: 'powerplay', label: 'Powerplay (ov 1-6)' },
+  { id: 'death',     label: 'Death overs (ov 16-20)' },
+  { id: 'match',     label: 'Whole match' },
+  { id: 'season',    label: 'Full season' },
 ];
 
 const SEASON_CODES = ['IPL26'];
@@ -31,16 +32,16 @@ const TYPES_BY_PHASE = {
     { id: 'custom_by_over',         label: 'Custom (by over)',    desc: 'Cumulative anything' },
   ],
   powerplay: [
-    { id: 'runs_powerplay',       label: 'Runs in powerplay',       desc: 'Team scores N+ in overs 1–6' },
-    { id: 'wickets_powerplay',    label: 'Wickets in powerplay',    desc: 'Team loses N+ in overs 1–6' },
-    { id: 'boundaries_powerplay', label: 'Boundaries in powerplay', desc: 'N+ sixes or fours' },
-    { id: 'custom_powerplay',     label: 'Custom (powerplay)',      desc: 'Anything else in powerplay' },
+    { id: 'runs_powerplay',       label: 'Runs in powerplay (ov 1-6)',       desc: 'Team scores N+ in overs 1–6' },
+    { id: 'wickets_powerplay',    label: 'Wickets in powerplay (ov 1-6)',    desc: 'Team loses N+ in overs 1–6' },
+    { id: 'boundaries_powerplay', label: 'Boundaries in powerplay (ov 1-6)', desc: 'N+ sixes or fours in overs 1–6' },
+    { id: 'custom_powerplay',     label: 'Custom (powerplay)',               desc: 'Anything else in powerplay' },
   ],
   death: [
-    { id: 'runs_death',       label: 'Runs in death overs',       desc: 'Team scores N+ in overs 16–20' },
-    { id: 'wickets_death',    label: 'Wickets in death overs',    desc: 'Team loses N+ in overs 16–20' },
-    { id: 'boundaries_death', label: 'Boundaries in death overs', desc: 'N+ sixes or fours' },
-    { id: 'custom_death',     label: 'Custom (death overs)',      desc: 'Anything else in death overs' },
+    { id: 'runs_death',       label: 'Runs in death overs (ov 16-20)',       desc: 'Team scores N+ in overs 16–20' },
+    { id: 'wickets_death',    label: 'Wickets in death overs (ov 16-20)',    desc: 'Team loses N+ in overs 16–20' },
+    { id: 'boundaries_death', label: 'Boundaries in death overs (ov 16-20)', desc: 'N+ sixes or fours in overs 16–20' },
+    { id: 'custom_death',     label: 'Custom (death overs)',                 desc: 'Anything else in death overs' },
   ],
   match: [
     { id: 'match_winner',  label: 'Match winner',   desc: 'Which team wins the match' },
@@ -139,14 +140,14 @@ function buildTitle(type, fields, teams, players) {
     case 'bowler_wickets_by_over':  return `Will ${p(fields.player_id)} have ${fields.min_wickets || 1}+ wickets by end of over ${fields.over || 'N'}?`;
     case 'custom_by_over':          return fields.custom_title || '...';
 
-    case 'runs_powerplay':       return `Will ${t(fields.team_id)} score ${opPhrase(fields.operator)} ${fields.threshold || 'N'} runs in the powerplay?`;
-    case 'wickets_powerplay':    return `Will ${t(fields.team_id)} lose ${fields.min_wickets || 1}+ wickets in the powerplay?`;
-    case 'boundaries_powerplay': return `Will ${t(fields.team_id)} hit ${boundaryPhrase(fields.boundary_type, fields.boundary_count)} in the powerplay?`;
+    case 'runs_powerplay':       return `Will ${t(fields.team_id)} score ${opPhrase(fields.operator)} ${fields.threshold || 'N'} runs in the powerplay (ov 1-6)?`;
+    case 'wickets_powerplay':    return `Will ${t(fields.team_id)} lose ${fields.min_wickets || 1}+ wickets in the powerplay (ov 1-6)?`;
+    case 'boundaries_powerplay': return `Will ${t(fields.team_id)} hit ${boundaryPhrase(fields.boundary_type, fields.boundary_count)} in the powerplay (ov 1-6)?`;
     case 'custom_powerplay':     return fields.custom_title || '...';
 
-    case 'runs_death':       return `Will ${t(fields.team_id)} score ${opPhrase(fields.operator)} ${fields.threshold || 'N'} runs in the death overs?`;
-    case 'wickets_death':    return `Will ${t(fields.team_id)} lose ${fields.min_wickets || 1}+ wickets in the death overs?`;
-    case 'boundaries_death': return `Will ${t(fields.team_id)} hit ${boundaryPhrase(fields.boundary_type, fields.boundary_count)} in the death overs?`;
+    case 'runs_death':       return `Will ${t(fields.team_id)} score ${opPhrase(fields.operator)} ${fields.threshold || 'N'} runs in the death overs (ov 16-20)?`;
+    case 'wickets_death':    return `Will ${t(fields.team_id)} lose ${fields.min_wickets || 1}+ wickets in the death overs (ov 16-20)?`;
+    case 'boundaries_death': return `Will ${t(fields.team_id)} hit ${boundaryPhrase(fields.boundary_type, fields.boundary_count)} in the death overs (ov 16-20)?`;
     case 'custom_death':     return fields.custom_title || '...';
 
     case 'match_winner':  return `Will ${t(fields.team_id)} beat ${t(fields.opponent_team_id)} today?`;
@@ -303,16 +304,45 @@ function TypeTile({ active, title, desc, onClick }) {
   );
 }
 
-// Tiny inline glyphs for the phase tiles. Mirrors the actual ContextBadge variants.
+// Unified single-token phase badges. Every phase collapses to one short
+// uppercase token on the same dark navy square; only the accent colour
+// distinguishes them. Labels live below the badge for the full description.
+const PHASE_BADGE_ACCENTS = {
+  over:      '#9ca3af', // slate-400 — neutral
+  by_over:   '#facc15', // yellow-400
+  powerplay: '#fbbf24', // amber-400
+  death:     '#ef5350', // red-400
+  match:     '#60a5fa', // blue-400
+  season:    '#fcd34d', // gold
+};
+// One-word tokens, sized down as token length grows so all six occupy the
+// same optical weight. "MATCH" and "IPL26" sit at a slightly smaller size so
+// they don't overflow the 40px square.
+const PHASE_BADGE_TOKEN = {
+  over:      { text: 'OVER',  size: 11 },
+  by_over:   { text: 'BY OV', size: 10 },
+  powerplay: { text: 'PP',    size: 16 },
+  death:     { text: 'DO',    size: 16 },
+  match:     { text: 'MATCH', size: 10 },
+  season:    { text: 'IPL26', size: 10 },
+};
 function PhaseGlyph({ phase }) {
-  const cls = 'w-9 h-9 rounded-lg flex flex-col items-center justify-center text-white shrink-0';
-  if (phase === 'over')      return <div className={cls} style={{ background: '#1a1a2e' }}><span className="text-gray-400 text-[7px] font-bold">OVER</span><span className="font-mono text-[12px] font-black leading-none mt-0.5">15</span></div>;
-  if (phase === 'by_over')   return <div className={cls} style={{ background: '#1a1a2e' }}><span className="text-[7px] font-bold" style={{ color: '#facc15' }}>BY OV</span><span className="font-mono text-[12px] font-black leading-none mt-0.5">18</span></div>;
-  if (phase === 'powerplay') return <div className={cls} style={{ background: '#1a1a2e' }}><span className="text-[7px] font-bold" style={{ color: '#fbbf24' }}>POWER</span><span className="text-[10px] font-black leading-none mt-0.5">PLAY</span></div>;
-  if (phase === 'death')     return <div className={cls} style={{ background: '#1a1a2e' }}><span className="text-[7px] font-bold" style={{ color: '#ef5350' }}>DEATH</span><span className="text-[10px] font-black leading-none mt-0.5">OVERS</span></div>;
-  if (phase === 'match')     return <div className={cls} style={{ background: '#16213e' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M8 3v4M16 3v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg><span className="text-[8px] font-bold mt-0.5">MATCH</span></div>;
-  if (phase === 'season')    return <div className={cls} style={{ background: '#0f3460' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" style={{ color: '#fcd34d' }}><path d="M6 3h12v4a6 6 0 0 1-12 0V3z"/><path d="M6 5H3a2 2 0 0 0 2 3h1M18 5h3a2 2 0 0 1-2 3h-1"/><path d="M9 14h6M12 14v4M8 21h8"/></svg><span className="text-[8px] font-black mt-0.5">IPL26</span></div>;
-  return null;
+  const accent = PHASE_BADGE_ACCENTS[phase];
+  const tok = PHASE_BADGE_TOKEN[phase];
+  if (!tok) return null;
+  return (
+    <div
+      className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+      style={{ background: '#1a1a2e' }}
+    >
+      <span
+        className="font-black tracking-[0.05em] leading-none"
+        style={{ color: accent, fontSize: `${tok.size}px` }}
+      >
+        {tok.text}
+      </span>
+    </div>
+  );
 }
 
 function TeamGrid({ teams, selectedId, onSelect, compact = false, exclude }) {
@@ -535,7 +565,10 @@ function Select({ label, value, onChange, options }) {
 
 // ── The Builder ────────────────────────────────────────────────────
 
-export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
+export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulkCreated }) {
+  // Group context is read once — submits attach ?group=<id> so the new
+  // contract is stamped with the correct group_id on the server.
+  const { currentGroupId } = useGroup();
   const [teams, setTeams] = useState([]);
   const [phase, setPhase]   = useState(null);
   const [type, setType]     = useState(null);
@@ -708,6 +741,18 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
       setError('Please fill in all required fields');
       return;
     }
+    // Effective resolve_mode for this submission — the server applies the same
+    // rule (season + custom types force manual). Match tag is only compulsory
+    // when the final mode ends up 'auto' AND the user is actually publishing.
+    // Saving as draft bypasses the requirement so the admin can stash a
+    // half-built contract and pick the match later.
+    const effectiveMode = (phase === 'season' || TYPES_WITH_CUSTOM_TITLE.has(type)) ? 'manual' : resolveMode;
+    if (publishStatus === 'active' && effectiveMode === 'auto' && !matchId) {
+      setError('Pick a match at the top of the builder — auto-resolve needs one.');
+      // Scroll the picker into view so the user sees where the error is.
+      document.querySelector('[data-match-picker]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSubmitting(true); setError('');
     try {
       const condition_json = buildConditionJson(type, fields, teams, playersList);
@@ -738,7 +783,13 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
         resolve_mode: (phase === 'season' || TYPES_WITH_CUSTOM_TITLE.has(type)) ? 'manual' : resolveMode,
         status: publishStatus,
       };
-      const url    = editing?.id ? `/api/contracts/${editing.id}` : '/api/contracts';
+      // Submit in the current context — POST to /api/contracts?group=<id> so
+      // the new contract is stamped with the right group_id. PATCH only needs
+      // context when the contract is a draft inside a group; the server
+      // auth-checks via the contract's own group_id either way, so attaching
+      // it here is just belt-and-braces.
+      const baseUrl = editing?.id ? `/api/contracts/${editing.id}` : '/api/contracts';
+      const url = withGroup(baseUrl, currentGroupId);
       const method = editing?.id ? 'PATCH' : 'POST';
       const r = await fetch(url, {
         method, credentials: 'include',
@@ -770,10 +821,47 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
         )}
       </div>
 
-      {/* Match picker — optional, removable. Hidden for season-long contracts
-          (they span many matches, so a single match_id doesn't apply). */}
+      {/* Match picker — required when the contract will auto-resolve, optional
+          otherwise. Hidden for season-long contracts (they span many matches,
+          so a single match_id doesn't apply). The data-match-picker handle
+          lets submit() scroll the user here when they hit the required-match
+          guard. */}
       {phase !== 'season' && (
-        <MatchPicker value={matchId} onChange={setMatchId} />
+        <div data-match-picker>
+          <MatchPicker
+            value={matchId}
+            onChange={setMatchId}
+            required={
+              // Custom types force manual, so match isn't required. Otherwise
+              // follow the user's resolve_mode choice.
+              !TYPES_WITH_CUSTOM_TITLE.has(type) && resolveMode === 'auto'
+            }
+          />
+        </div>
+      )}
+
+      {/* Quick templates — group-admin only (public admin doesn't need these
+          since their bots also supply contracts). Renders a 4-tile row that
+          drafts a bundle of contracts tagged to the selected match. Admin
+          still has to open each draft and publish. */}
+      {currentGroupId && matchId && !editing && (
+        <>
+          <QuickTemplates
+            groupId={currentGroupId}
+            matchId={matchId}
+            onBulkCreated={onBulkCreated || onSaved}
+          />
+          {/* Divider — signals the two paths (template vs manual) are
+              alternatives, not sequential steps. Only renders when
+              QuickTemplates is visible, for the same reason. */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 border-t border-slate-200 dark:border-gray-700"></div>
+            <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase tracking-wider font-bold">
+              OR make one yourself
+            </span>
+            <div className="flex-1 border-t border-slate-200 dark:border-gray-700"></div>
+          </div>
+        </>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
@@ -781,7 +869,10 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
           {/* STEP 1 — Phase */}
           <div>
             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Step 1 · Phase</p>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {/* 6 phases fit in one row on sm+ — avoids the 6th tile wrapping
+                to a new line. Tile content is compact enough to survive the
+                ~17% narrower slot. Mobile stays at 3 cols (2 rows of 3). */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {PHASES.map(p => (
                 <PhaseTile key={p.id} active={phase === p.id} title={p.label}
                            badge={<PhaseGlyph phase={p.id} />} onClick={() => selectPhase(p.id)} />
@@ -991,6 +1082,68 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit }) {
           onCancel={() => setShowAddPlayer(false)}
         />
       )}
+    </div>
+  );
+}
+
+// QuickTemplates — 4 preset bundles that spin up a set of draft contracts
+// for the currently-selected match. Shown only when the admin is inside a
+// group AND has picked a match. Server owns the template definitions so this
+// stays a thin UI.
+const TEMPLATE_TILES = [
+  { key: 'standard_match',  emoji: '📊', title: 'Standard match',  blurb: 'Toss · winner · innings score · PP · death · over 1', count: 8 },
+  { key: 'powerplay_focus', emoji: '🔥', title: 'Powerplay (ov 1-6)',    blurb: 'PP runs · PP wickets · PP fours · first-over six · ov 6 runs', count: 5 },
+  { key: 'death_fireworks', emoji: '💀', title: 'Death overs (ov 16-20)', blurb: 'Sixes · death runs · death wickets · over 20 runs',   count: 4 },
+  { key: 'both_teams',      emoji: '⚔️', title: 'Head-to-head',    blurb: 'Mirrored contracts for both teams: toss · winner · innings · PP', count: 6 },
+];
+
+function QuickTemplates({ groupId, matchId, onBulkCreated }) {
+  const [busy, setBusy] = useState(null);
+  const [err, setErr]   = useState('');
+  async function run(templateKey) {
+    setBusy(templateKey); setErr('');
+    try {
+      const r = await fetch(`/api/groups/${groupId}/bulk-contracts?group=${groupId}`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: templateKey, match_id: matchId }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Template failed');
+      onBulkCreated?.();
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(null); }
+  }
+  // Compact layout: single-line header, inline tiles. Cuts vertical space by
+  // ~40% versus the original hero-style card so the builder below isn't
+  // pushed off-screen.
+  return (
+    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-2.5">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-base leading-none">⚡</span>
+        <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">Quick templates</p>
+        <span className="text-[10px] text-amber-800 dark:text-amber-300 truncate">— one click drafts a bundle for this match. Edit or drop each before publishing.</span>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
+        {TEMPLATE_TILES.map(t => (
+          <button
+            key={t.key}
+            onClick={() => run(t.key)}
+            disabled={!!busy}
+            className="text-left bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-2 hover:border-amber-400 hover:shadow-sm transition-all disabled:opacity-50"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm leading-none">{t.emoji}</span>
+              <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{t.title}</p>
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 leading-tight line-clamp-1">{t.blurb}</p>
+            <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 mt-1">
+              {busy === t.key ? 'Drafting…' : `+ ${t.count} drafts`}
+            </p>
+          </button>
+        ))}
+      </div>
+      {err && <p className="text-xs text-red-600 mt-1.5">{err}</p>}
     </div>
   );
 }

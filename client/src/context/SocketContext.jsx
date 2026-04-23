@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { useGroup } from './GroupContext';
 
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
   const { user, updateBalance } = useAuth();
+  const { applyBalanceUpdate } = useGroup();
   const ws = useRef(null);
   const listeners = useRef({});
   const [connected, setConnected] = useState(false);
@@ -42,9 +44,12 @@ export function SocketProvider({ children }) {
       socket.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          // Handle balance updates globally
+          // Handle balance updates globally. For public context (no groupId)
+          // we update AuthContext.user.balance; for group contexts we route
+          // through GroupContext so the chip + dropdown stay fresh.
           if (msg.type === 'balance_update' && msg.userId === user.id) {
-            updateBalance(msg.newBalance);
+            if (msg.groupId == null) updateBalance(msg.newBalance);
+            applyBalanceUpdate?.(msg);
           }
           // Dispatch to listeners
           const fns = listeners.current[msg.type];

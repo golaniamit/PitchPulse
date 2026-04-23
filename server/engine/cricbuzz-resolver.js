@@ -624,14 +624,14 @@ function describePending(condition, match, overs, scorecard) {
     case 'wickets_powerplay':
     case 'boundaries_powerplay':
       if (!innings) return 'Team innings not started';
-      if (played < 6) return `Powerplay in progress (${at})`;
-      return `Waiting for ledger coverage of overs 1-6`;
+      if (played < 6) return `Powerplay (ov 1-6) in progress (${at})`;
+      return `Waiting for ledger coverage of powerplay (ov 1-6)`;
     case 'runs_death':
     case 'wickets_death':
     case 'boundaries_death':
       if (!innings) return 'Team innings not started';
-      if (played < 20) return `Death overs not yet complete (${at})`;
-      return `Waiting for ledger coverage of overs 16-20`;
+      if (played < 20) return `Death overs (ov 16-20) not yet complete (${at})`;
+      return `Waiting for ledger coverage of death overs (ov 16-20)`;
     case 'match_winner':
       if (!match.result) return `Match in progress — ${match.status || match.state || 'awaiting result'}`;
       return 'Pending';

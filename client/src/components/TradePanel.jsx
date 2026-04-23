@@ -1,9 +1,15 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useGroup } from '../context/GroupContext';
 import InfoTooltip from './InfoTooltip';
 
 export default function TradePanel({ contract, onTraded }) {
   const { user } = useAuth();
+  const { ctxBalance } = useGroup();
+  // Use the context wallet (per-group balance when inside a group, public
+  // balance otherwise). Falls back to the user's public balance if ctx is null.
+  // The contract's own group_id is what the server uses to route coins.
+  const walletBalance = (contract?.group_id ? ctxBalance : user?.balance) ?? user?.balance ?? 0;
   const [side, setSide] = useState('YES');
   const [price, setPrice] = useState(contract?.current_price || 50);
   const [quantity, setQuantity] = useState(1);
@@ -26,7 +32,7 @@ export default function TradePanel({ contract, onTraded }) {
 
   async function submit() {
     setError(''); setSuccess('');
-    if (cost > user.balance) { setError('Insufficient balance'); return; }
+    if (cost > walletBalance) { setError('Insufficient balance'); return; }
     setLoading(true);
     try {
       const r = await fetch('/api/orders', {
@@ -159,7 +165,7 @@ export default function TradePanel({ contract, onTraded }) {
 
       <button
         onClick={submit}
-        disabled={loading || cost > user.balance}
+        disabled={loading || cost > walletBalance}
         className={`w-full py-3 rounded-xl text-white font-bold text-sm transition-colors disabled:opacity-50 ${side === 'YES' ? 'bg-yes hover:bg-yes-light' : 'bg-no hover:bg-no-light'}`}
       >
         {loading ? 'Placing...' : `${verb} ${side} · 🪙 ${cost}`}

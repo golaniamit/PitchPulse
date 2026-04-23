@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useGroup, withGroup } from '../context/GroupContext';
 import ContractBuilder from '../components/ContractBuilder';
 
 
@@ -10,11 +11,16 @@ import ContractBuilder from '../components/ContractBuilder';
 function ResolveModal({ contract, onConfirm, onCancel }) {
   const [step, setStep] = useState(1); // 1 = confirm, 2 = pick outcome
   const [resolution, setResolution] = useState(null);
+  const [reason, setReason] = useState(''); // #3.1 — explanation for members
   const [confirming, setConfirming] = useState(false);
+  // Reason mandatory for group contracts (server enforces too); optional for
+  // public admin but encouraged.
+  const isGroup = !!contract?.group_id;
+  const canConfirm = !!resolution && (!isGroup || reason.trim().length >= 3);
 
   async function confirm() {
     setConfirming(true);
-    await onConfirm(resolution);
+    await onConfirm(resolution, reason.trim() || null);
     setConfirming(false);
   }
 
@@ -89,6 +95,25 @@ function ResolveModal({ contract, onConfirm, onCancel }) {
               </button>
             </div>
 
+            {/* Reason — required inside a group (server enforces), optional
+                for public. Shown to every position-holder in the resolution
+                toast + on the contract detail page as an audit trail. */}
+            <div className="pt-2">
+              <label className="text-[11px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wide">
+                Reason {isGroup ? <span className="text-red-600">*</span> : <span className="normal-case text-slate-400">(optional)</span>}
+              </label>
+              <textarea
+                value={reason}
+                onChange={e => setReason(e.target.value.slice(0, 300))}
+                placeholder={isGroup
+                  ? 'Required — e.g. "Match abandoned, refunded" or "Kohli out for 48 on ball 5 of over 18"'
+                  : 'Optional note for members'}
+                rows={2}
+                className="w-full mt-1 border border-slate-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-navy-800"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">{reason.length}/300 · members see this on the resolved contract</p>
+            </div>
+
             <div className="flex gap-2 pt-1">
               <button
                 onClick={onCancel}
@@ -98,7 +123,7 @@ function ResolveModal({ contract, onConfirm, onCancel }) {
               </button>
               <button
                 onClick={confirm}
-                disabled={!resolution || confirming}
+                disabled={!canConfirm || confirming}
                 className="flex-1 py-2.5 rounded-xl bg-navy-800 text-white text-sm font-semibold hover:bg-navy-700 transition-colors disabled:opacity-40"
               >
                 {confirming ? 'Resolving...' : `Confirm ${resolution || '—'}`}
@@ -422,12 +447,20 @@ function ResolverHealthDot({ health }) {
 export default function Admin() {
   const { user } = useAuth();
   const { on } = useSocket();
+  const { currentGroupId, currentGroup } = useGroup();
+  // Admin in current context: public admin for public mkt, group admin role for groups.
+  const isAdminHere = currentGroup ? currentGroup.role === 'admin' : !!user?.is_admin;
+  // Some admin sections (resolver health, bots, user stats, poll interval) only
+  // make sense for the public marketplace admin. Group admins see a slimmer
+  // page focused on their group's contracts.
+  const isPublicAdmin = !currentGroup && !!user?.is_admin;
   const navigate = useNavigate();
   const [contracts, setContracts] = useState([]);
   const [editingContract, setEditingContract] = useState(null);   // contract object (or {...c, id: undefined} for duplicate)
   const [resolvingContract, setResolvingContract] = useState(null);
   const [adminTab, setAdminTab] = useState('active');    // filter for the "All contracts" list — default to active (most common view)
   const builderRef = useRef(null);                        // lets "Duplicate" scroll back to the builder
+  const contractListRef = useRef(null);                   // bulk-templates jump to this list afterwards
 
   // Map of matchId → "TEAM1 vs TEAM2". Filled once on mount so the contract list
   // can render a glanceable badge showing which Cricbuzz match a contract is tagged to.
@@ -436,47 +469,52 @@ export default function Admin() {
   const [includeArchived, setIncludeArchived] = useState(false);
 
   useEffect(() => {
-    if (!user?.is_admin) { navigate('/'); return; }
+    if (!isAdminHere) { navigate('/'); return; }
     loadContracts();
+    // Match-name lookup is needed by BOTH public and group admins — it turns
+    // raw match_id values into "RR vs LSG" badges on the contract list.
+    // The endpoint itself is open to any logged-in user now.
     loadMatchLookup();
-    const pollHealth = () => fetch('/api/admin/resolver-health', { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null).then(setResolverHealth).catch(() => {});
-    pollHealth();
-    const id = setInterval(pollHealth, 15000);
-    return () => clearInterval(id);
-  }, [user]);
+    // Resolver health polling is public-admin-only — group admins don't run the resolver.
+    if (isPublicAdmin) {
+      const pollHealth = () => fetch('/api/admin/resolver-health', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null).then(setResolverHealth).catch(() => {});
+      pollHealth();
+      const id = setInterval(pollHealth, 15000);
+      return () => clearInterval(id);
+    }
+  }, [isAdminHere, isPublicAdmin, currentGroupId]);
 
-  useEffect(() => { if (user?.is_admin) loadContracts(); }, [includeArchived]);
+  useEffect(() => { if (isAdminHere) loadContracts(); }, [includeArchived, currentGroupId]);
 
   // Live updates — same wiring Home.jsx uses so the admin list reflects
   // status/price/resolution changes without the admin having to refresh.
   // Admins see ALL statuses (draft + cancelled included), so no status
-  // filtering here — unlike Home's logic for non-admins.
+  // filtering here — unlike Home's logic for non-admins. WS messages are
+  // filtered to the current context so we don't leak across groups.
   useEffect(() => {
-    if (!user?.is_admin) return;
+    if (!isAdminHere) return;
+    const inCtx = (msg) => (msg?.groupId ?? null) === (currentGroupId ?? null);
     const upsert = (cs, contract) => [contract, ...cs.filter(c => c.id !== contract.id)];
     const unsubs = [
-      on('contract_created', (msg) =>
-        setContracts(cs => upsert(cs, msg.contract))),
-      on('contract_resolved', (msg) =>
-        setContracts(cs => cs.map(c =>
+      on('contract_created', (msg) => { if (!inCtx(msg)) return; setContracts(cs => upsert(cs, msg.contract)); }),
+      on('contract_resolved', (msg) => { if (!inCtx(msg)) return; setContracts(cs => cs.map(c =>
           c.id === msg.contractId
             ? { ...c, status: 'resolved', resolution: msg.resolution, resolved_at: new Date().toISOString().slice(0,19).replace('T',' ') }
             : c
-        ))),
-      on('contract_updated', (msg) =>
-        setContracts(cs => upsert(cs, msg.contract))),
-      on('price_update', (msg) =>
-        setContracts(cs => cs.map(c =>
+        )); }),
+      on('contract_updated', (msg) => { if (!inCtx(msg)) return; setContracts(cs => upsert(cs, msg.contract)); }),
+      on('price_update', (msg) => { if (!inCtx(msg)) return; setContracts(cs => cs.map(c =>
           c.id === msg.contractId ? { ...c, current_price: msg.price } : c
-        ))),
+        )); }),
     ];
     return () => unsubs.forEach(fn => fn?.());
-  }, [on, user]);
+  }, [on, isAdminHere, currentGroupId]);
 
   async function loadContracts() {
-    const qs = includeArchived ? '?includeArchived=1' : '';
-    const r = await fetch(`/api/contracts${qs}`, { credentials: 'include' });
+    let url = withGroup('/api/contracts', currentGroupId);
+    if (includeArchived) url += (url.includes('?') ? '&' : '?') + 'includeArchived=1';
+    const r = await fetch(url, { credentials: 'include' });
     const d = await r.json();
     setContracts(d.contracts || []);
   }
@@ -519,13 +557,18 @@ export default function Admin() {
     loadContracts();
   }
 
-  async function resolveContract(resolution) {
-    await fetch(`/api/contracts/${resolvingContract.id}/resolve`, {
+  async function resolveContract(resolution, reason = null) {
+    const r = await fetch(`/api/contracts/${resolvingContract.id}/resolve`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resolution }),
+      body: JSON.stringify({ resolution, reason }),
     });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      alert(d.error || 'Resolve failed');
+      return;
+    }
     setResolvingContract(null);
     loadContracts();
   }
@@ -574,12 +617,24 @@ export default function Admin() {
       )}
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Bots + resolver poll + live player count — three cards side by side on desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <BotsControl />
-          <PollIntervalControl />
-          <UserStats />
-        </div>
+        {/* Context banner when operating inside a group — makes it unambiguous
+            that contracts built here are private to this group, not public. */}
+        {currentGroup && (
+          <div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 px-4 py-3 text-sm text-purple-900 dark:text-purple-200">
+            <span className="font-semibold">👥 Group mode — {currentGroup.name}.</span>{' '}
+            Contracts you create here are private to this group's {currentGroup.member_count} members.
+          </div>
+        )}
+
+        {/* Bots + resolver poll + live player count — three cards side by side on desktop.
+            Only the public-market admin sees these; group admins don't run the resolver. */}
+        {isPublicAdmin && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <BotsControl />
+            <PollIntervalControl />
+            <UserStats />
+          </div>
+        )}
 
         {/* Contract builder — 3-slot tile-based form */}
         <div ref={builderRef}>
@@ -587,11 +642,23 @@ export default function Admin() {
             editing={editingContract}
             onSaved={() => { resetBuilder(); loadContracts(); }}
             onCancelEdit={resetBuilder}
+            onBulkCreated={() => {
+              // After a Quick Template drops a batch of drafts, flip the
+              // contract list below to the Drafts tab, reload, and scroll
+              // the admin down to the list so they immediately see what got
+              // made. Keeps the motion sequence clear: click template →
+              // contracts appear right below.
+              setAdminTab('draft');
+              loadContracts();
+              setTimeout(() => {
+                contractListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 150);
+            }}
           />
         </div>
 
         {/* All contracts dashboard */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
+        <div ref={contractListRef} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h2 className="font-bold text-gray-900 dark:text-gray-100">All Contracts</h2>
             <div className="flex items-center gap-3">
@@ -600,7 +667,7 @@ export default function Admin() {
                        className="accent-navy-800 w-3.5 h-3.5" />
                 Include archived
               </label>
-              <ResolverHealthDot health={resolverHealth} />
+              {isPublicAdmin && <ResolverHealthDot health={resolverHealth} />}
             </div>
           </div>
 

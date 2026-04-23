@@ -1,5 +1,6 @@
 const db = require('../db');
 const { broadcast } = require('../websocket');
+const { adjustBalance, readBalance, groupIdForContract } = require('../lib/context');
 
 /**
  * Core order matching engine.
@@ -34,6 +35,10 @@ function getOrderBook(contractId) {
 
 function matchOrders(contractId) {
   let tradesExecuted = 0;
+  // All refunds + balance broadcasts for this contract flow to the correct
+  // wallet (public users.balance or group_members.balance). Resolved once
+  // up front — groupId never changes mid-match.
+  const gid = groupIdForContract(contractId);
 
   while (true) {
     // Find the best matchable pair directly.
@@ -101,34 +106,31 @@ function matchOrders(contractId) {
     upsertPosition(yesBid.user_id, contractId, 'YES', qty, tradePrice);
     upsertPosition(noBid.user_id, contractId, 'NO', qty, 100 - tradePrice);
 
-    // Refund any overpayment if taker got a better price
-    // YES buyer locked yesBid.price per contract; trade executes at tradePrice
+    // Refund any overpayment if taker got a better price.
+    // YES buyer locked yesBid.price per contract; trade executes at tradePrice.
     const yesRefund = (yesBid.price - tradePrice) * qty;
-    if (yesRefund > 0) {
-      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(yesRefund, yesBid.user_id);
-    }
-    // NO buyer locked (100 - noBid.price) per contract; actual cost at trade = (100 - tradePrice)
-    // Refund = locked - actual = (100 - noBid.price) - (100 - tradePrice) = tradePrice - noBid.price
+    if (yesRefund > 0) adjustBalance(yesBid.user_id, gid, yesRefund);
+    // NO buyer locked (100 - noBid.price) per contract; actual cost at trade = (100 - tradePrice).
+    // Refund = locked - actual = (100 - noBid.price) - (100 - tradePrice) = tradePrice - noBid.price.
     const noRefund = (tradePrice - noBid.price) * qty;
-    if (noRefund > 0) {
-      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(noRefund, noBid.user_id);
-    }
+    if (noRefund > 0) adjustBalance(noBid.user_id, gid, noRefund);
 
-    // Broadcast events
-    const yesBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(yesBid.user_id).balance;
-    const noBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(noBid.user_id).balance;
+    // Broadcast events. All messages carry groupId so the client can filter
+    // events that don't belong to its currently-selected context.
+    const yesBalance = readBalance(yesBid.user_id, gid);
+    const noBalance  = readBalance(noBid.user_id, gid);
 
-    broadcast({ type: 'trade_executed', contractId, price: tradePrice, quantity: qty, timestamp: new Date().toISOString() });
-    broadcast({ type: 'price_update', contractId, price: tradePrice, timestamp: new Date().toISOString() });
-    broadcast({ type: 'balance_update', userId: yesBid.user_id, newBalance: yesBalance });
-    broadcast({ type: 'balance_update', userId: noBid.user_id, newBalance: noBalance });
+    broadcast({ type: 'trade_executed', contractId, price: tradePrice, quantity: qty, timestamp: new Date().toISOString(), groupId: gid });
+    broadcast({ type: 'price_update', contractId, price: tradePrice, timestamp: new Date().toISOString(), groupId: gid });
+    broadcast({ type: 'balance_update', userId: yesBid.user_id, newBalance: yesBalance, groupId: gid });
+    broadcast({ type: 'balance_update', userId: noBid.user_id, newBalance: noBalance, groupId: gid });
 
     tradesExecuted++;
   }
 
   if (tradesExecuted > 0) {
     const { bids, asks } = getOrderBook(contractId);
-    broadcast({ type: 'orderbook_update', contractId, bids, asks });
+    broadcast({ type: 'orderbook_update', contractId, bids, asks, groupId: gid });
   }
 
   return tradesExecuted;

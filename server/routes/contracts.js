@@ -4,8 +4,35 @@ const { requireAuth, requireAdmin } = require('../middleware');
 const { broadcast } = require('../websocket');
 const { pushToUser } = require('../engine/push');
 const { stripTags } = require('../sanitize');
+const { resolveContext, adjustBalance } = require('../lib/context');
 
 const router = express.Router();
+
+// Shared authz: allow the action if the caller is either the global admin
+// (public marketplace) OR the admin of the group the contract belongs to.
+// req.groupId must be set (resolveContext middleware).
+function requireContextAdmin(req, res, next) {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Not logged in' });
+  if (req.groupId) {
+    if (req.groupRole !== 'admin') return res.status(403).json({ error: 'Group admin access required' });
+    return next();
+  }
+  const u = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
+  if (!u?.is_admin) return res.status(403).json({ error: 'Admin access required' });
+  next();
+}
+
+// Function form of the same check — used on routes where the contract id is in
+// the URL (so the context is determined by the contract, not by ?group=).
+function isContextAdmin(userId, contractGroupId) {
+  if (contractGroupId) {
+    const m = db.prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?')
+      .get(contractGroupId, userId);
+    return m?.role === 'admin';
+  }
+  const u = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(userId);
+  return !!u?.is_admin;
+}
 
 // Enrich a contract row with live order book state
 const bestYesBidStmt = db.prepare("SELECT MAX(price) as best FROM orders WHERE contract_id = ? AND side = 'YES' AND status IN ('open','partial')");
@@ -83,16 +110,21 @@ function cutoffForPhase(phase, audience) {
 // A user's own participated contracts (any position ever held) are always
 // visible for 24h after resolution, even if the global window would hide them.
 // Pass ?includeArchived=1 to bypass filtering entirely (admin view toggle).
-router.get('/', requireAuth, (req, res) => {
+router.get('/', requireAuth, resolveContext, (req, res) => {
   const { status } = req.query;
   const includeArchived = req.query.includeArchived === '1' || req.query.includeArchived === 'true';
   const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
-  const isAdmin = !!user?.is_admin;
+  // Context-aware admin check — public uses users.is_admin, group uses role.
+  const isAdmin = req.groupId ? (req.groupRole === 'admin') : !!user?.is_admin;
 
   const where = [];
   const params = [];
   if (status) { where.push('c.status = ?'); params.push(status); }
   if (!isAdmin) where.push("c.status IN ('active','resolved')");
+  // Scope to current context: public feed sees only group_id IS NULL; inside a
+  // group, only that group's contracts.
+  if (req.groupId) { where.push('c.group_id = ?'); params.push(req.groupId); }
+  else             { where.push('c.group_id IS NULL'); }
 
   let query = 'SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id';
   if (where.length) query += ' WHERE ' + where.join(' AND ');
@@ -124,11 +156,21 @@ router.get('/', requireAuth, (req, res) => {
   res.json({ contracts });
 });
 
-// Get single contract. Draft/cancelled return 404 to non-admins (don't leak existence).
+// Get single contract. Draft/cancelled return 404 to non-admins (don't leak
+// existence). A group contract is only visible to that group's members; a
+// public contract is visible to everyone.
 router.get('/:id', requireAuth, (req, res) => {
   const contract = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
-  if (contract.status === 'draft' || contract.status === 'cancelled') {
+  // Visibility gate: group contracts only to members; public contracts to all.
+  if (contract.group_id) {
+    const m = db.prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?')
+      .get(contract.group_id, req.session.userId);
+    if (!m) return res.status(404).json({ error: 'Contract not found' });
+    if (contract.status === 'draft' || contract.status === 'cancelled') {
+      if (m.role !== 'admin') return res.status(404).json({ error: 'Contract not found' });
+    }
+  } else if (contract.status === 'draft' || contract.status === 'cancelled') {
     const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.session.userId);
     if (!user?.is_admin) return res.status(404).json({ error: 'Contract not found' });
   }
@@ -167,8 +209,10 @@ function validFK(table, id) {
   return !!db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id);
 }
 
-// Create contract (admin only)
-router.post('/', requireAdmin, (req, res) => {
+// Create contract. Public admin creates public contracts (group_id = null);
+// group admin creates contracts inside their group. The distinction is made
+// via resolveContext + requireContextAdmin — same body, different visibility.
+router.post('/', requireAuth, resolveContext, requireContextAdmin, (req, res) => {
   const { title, type, condition_json, match_id, over_number, resolve_mode, status,
           phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, season_code } = req.body;
   if (!title || !type) return res.status(400).json({ error: 'Title and type required' });
@@ -186,13 +230,24 @@ router.post('/', requireAdmin, (req, res) => {
   if (!cleanTitle) return res.status(400).json({ error: 'Title required' });
   const cleanedCondition = sanitizeCondition(condition_json);
 
+  // Auto-resolve contracts MUST be tagged to a Cricbuzz match. The resolver
+  // polls per match_id, so a missing match_id means the contract would just
+  // sit idle until an admin resolves it manually — effectively a bug for the
+  // creator. Reject at publish-time only; drafts are allowed to stash with no
+  // match so the admin can fill in the match later. Season contracts always
+  // resolve manually (they span many matches) so they're exempt.
+  const isPublishing = (status || 'draft') === 'active';
+  if (isPublishing && resolve_mode === 'auto' && phase !== 'season' && !match_id) {
+    return res.status(400).json({ error: 'Auto-resolve contracts must be tagged to a match — pick one at the top of the builder' });
+  }
+
   const inningsNum = (innings_number === 1 || innings_number === 2) ? innings_number : null;
   const seasonCode = phase === 'season' ? stripTags(String(season_code || '')).slice(0, 20) || null : null;
 
   const stmt = db.prepare(`
     INSERT INTO contracts (title, type, condition_json, match_id, over_number, resolve_mode, status,
-                           phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, season_code, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, season_code, created_by, group_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     cleanTitle,
@@ -209,7 +264,8 @@ router.post('/', requireAdmin, (req, res) => {
     player_id || null,
     inningsNum,
     seasonCode,
-    req.session.userId
+    req.session.userId,
+    req.groupId || null,
   );
 
   const contract = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(result.lastInsertRowid);
@@ -217,9 +273,9 @@ router.post('/', requireAdmin, (req, res) => {
   // Add initial price history point
   db.prepare('INSERT INTO price_history (contract_id, price) VALUES (?, ?)').run(contract.id, 50);
 
-  // Only broadcast once the contract is visible to users
+  // Only broadcast once the contract is visible to users.
   if (contract.status === 'active') {
-    broadcast({ type: 'contract_created', contract: enrichContract(contract) });
+    broadcast({ type: 'contract_created', contract: enrichContract(contract), groupId: contract.group_id });
   }
 
   res.status(201).json({ contract: enrichContract(contract) });
@@ -230,13 +286,17 @@ router.post('/', requireAdmin, (req, res) => {
 // can optionally be flipped to 'active' in the same request (Save & Publish).
 // Refuses to edit anything that isn't a draft so trading isn't pulled out
 // from under users.
-router.patch('/:id', requireAdmin, (req, res) => {
+router.patch('/:id', requireAuth, (req, res) => {
   const { title, type, condition_json, match_id, resolve_mode, status,
           phase, subject_kind, team_id, opponent_team_id, player_id, innings_number, season_code } = req.body;
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
   if (contract.status !== 'draft') {
     return res.status(400).json({ error: 'Only draft contracts can be edited' });
+  }
+  // Authz: must be admin of the contract's own context.
+  if (!isContextAdmin(req.session.userId, contract.group_id)) {
+    return res.status(403).json({ error: 'Admin access required' });
   }
 
   if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid contract type' });
@@ -251,6 +311,12 @@ router.patch('/:id', requireAdmin, (req, res) => {
   const cleanedCondition = sanitizeCondition(condition_json);
 
   const nextStatus = (status === 'active' || status === 'draft') ? status : 'draft';
+
+  // Same auto-resolve + match_id enforcement as on create. Only applies when
+  // the caller is about to publish (status=active) — drafts can be incomplete.
+  if (nextStatus === 'active' && resolve_mode === 'auto' && phase !== 'season' && !match_id) {
+    return res.status(400).json({ error: 'Auto-resolve contracts must be tagged to a match — pick one at the top of the builder' });
+  }
 
   const inningsNum = (innings_number === 1 || innings_number === 2) ? innings_number : null;
   const seasonCode = phase === 'season' ? stripTags(String(season_code || '')).slice(0, 20) || null : null;
@@ -280,13 +346,13 @@ router.patch('/:id', requireAdmin, (req, res) => {
   const updated = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(req.params.id);
   // Only broadcast once the contract becomes visible to traders.
   if (nextStatus === 'active') {
-    broadcast({ type: 'contract_created', contract: enrichContract(updated) });
+    broadcast({ type: 'contract_created', contract: enrichContract(updated), groupId: updated.group_id });
   }
   res.json({ contract: enrichContract(updated) });
 });
 
 // Update contract status (admin only)
-router.patch('/:id/status', requireAdmin, (req, res) => {
+router.patch('/:id/status', requireAuth, (req, res) => {
   const { status } = req.body;
   const validStatuses = ['draft', 'active', 'cancelled'];
   if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
@@ -294,6 +360,9 @@ router.patch('/:id/status', requireAdmin, (req, res) => {
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
   if (contract.status === 'resolved') return res.status(400).json({ error: 'Cannot change status of resolved contract' });
+  if (!isContextAdmin(req.session.userId, contract.group_id)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
 
   db.prepare('UPDATE contracts SET status = ? WHERE id = ?').run(status, req.params.id);
 
@@ -310,28 +379,68 @@ router.patch('/:id/status', requireAdmin, (req, res) => {
   const wasVisible = contract.status === 'active' || contract.status === 'resolved';
   const nowVisible = status === 'active' || status === 'resolved';
   if (wasVisible || nowVisible) {
-    broadcast({ type: 'contract_updated', contract: enrichContract(updated) });
+    broadcast({ type: 'contract_updated', contract: enrichContract(updated), groupId: updated.group_id });
   }
   res.json({ contract: enrichContract(updated) });
 });
 
-// Manually resolve contract (admin only)
-router.post('/:id/resolve', requireAdmin, (req, res) => {
-  const { resolution } = req.body;
+// Manually resolve contract (admin only — public or group). Accepts an
+// optional `reason` (short human-readable explanation) that's stored on the
+// contract so members can audit why the call went the way it did. For group
+// contracts the reason is strongly encouraged (the UI makes it mandatory).
+router.post('/:id/resolve', requireAuth, (req, res) => {
+  const { resolution, reason } = req.body;
   if (!['YES', 'NO'].includes(resolution)) return res.status(400).json({ error: 'Resolution must be YES or NO' });
 
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
-  // Only active contracts can be resolved. Draft / cancelled / already-resolved
-  // all fail with a clear reason so the admin can act on it.
+  if (!isContextAdmin(req.session.userId, contract.group_id)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
   if (contract.status !== 'active') {
     return res.status(400).json({ error: `Cannot resolve a ${contract.status} contract — activate it first` });
   }
+  // Server-side mandatory reason for GROUP contracts — public admin leaves it
+  // optional because the resolver supplies context via last_eval_reason for
+  // auto contracts, and public-admin disputes are rarer than group politics.
+  const cleanReason = reason ? stripTags(String(reason)).slice(0, 300) : null;
+  if (contract.group_id && !cleanReason) {
+    return res.status(400).json({ error: 'Please give a short reason for members' });
+  }
 
-  settleContract(parseInt(req.params.id), resolution);
+  settleContract(parseInt(req.params.id), resolution, cleanReason);
 
   const updated = db.prepare('SELECT * FROM contracts WHERE id = ?').get(req.params.id);
   res.json({ contract: updated });
+});
+
+// GET /api/contracts/:id/admin-positions — for group contracts, surface the
+// admin's (creator/settler) positions on this contract so members can see
+// whether the admin had skin in the game and which side. Transparency only:
+// the data was already fetchable via trades, this just makes it obvious.
+// Public contracts return 404 (not a trust concern there — it's a big open
+// market with no single arbiter).
+router.get('/:id/admin-positions', requireAuth, (req, res) => {
+  const contract = db.prepare('SELECT id, group_id, created_by FROM contracts WHERE id = ?').get(req.params.id);
+  if (!contract) return res.status(404).json({ error: 'Contract not found' });
+  if (!contract.group_id) return res.status(404).json({ error: 'Not available for public contracts' });
+  // Caller must be a member of the group (not necessarily admin).
+  const member = db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?')
+    .get(contract.group_id, req.session.userId);
+  if (!member) return res.status(403).json({ error: 'Not a member of this group' });
+  // Figure out who the admin currently is for this group — may have changed
+  // via transfer-admin since the contract was created.
+  const admin = db.prepare(`
+    SELECT u.id, u.username, u.display_name, u.avatar_emoji
+    FROM group_members gm JOIN users u ON u.id = gm.user_id
+    WHERE gm.group_id = ? AND gm.role = 'admin'
+  `).get(contract.group_id);
+  if (!admin) return res.json({ admin: null, positions: [] });
+  const positions = db.prepare(`
+    SELECT side, quantity, avg_price FROM positions
+    WHERE contract_id = ? AND user_id = ?
+  `).all(req.params.id, admin.id);
+  res.json({ admin, positions });
 });
 
 // Undo a just-settled contract — reverses winner payouts and flips the
@@ -343,10 +452,13 @@ router.post('/:id/resolve', requireAdmin, (req, res) => {
 // differently. This is the intended safety net against resolver bugs or
 // Cricbuzz data glitches.
 const UNDO_WINDOW_MS = 60_000;
-router.post('/:id/undo-settle', requireAdmin, (req, res) => {
+router.post('/:id/undo-settle', requireAuth, (req, res) => {
   const contractId = parseInt(req.params.id);
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId);
   if (!contract) return res.status(404).json({ error: 'Contract not found' });
+  if (!isContextAdmin(req.session.userId, contract.group_id)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
   if (contract.status !== 'resolved' || !contract.resolved_at) {
     return res.status(400).json({ error: 'Contract is not resolved' });
   }
@@ -356,13 +468,17 @@ router.post('/:id/undo-settle', requireAdmin, (req, res) => {
   }
 
   // Reverse winner payouts — same formula settleContract used (qty * 100).
+  // Routed through adjustBalance so group wallets are debited correctly.
   const positions = db.prepare('SELECT * FROM positions WHERE contract_id = ?').all(contractId);
   for (const pos of positions) {
     if (pos.side === contract.resolution) {
       const payout = pos.quantity * 100;
-      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(payout, pos.user_id);
-      const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(pos.user_id).balance;
-      broadcast({ type: 'balance_update', userId: pos.user_id, newBalance });
+      const newBalance = adjustBalance(pos.user_id, contract.group_id, -payout);
+      // Skip the broadcast for users who are no longer members (null return)
+      // — the wallet no longer exists, so there's nothing to tell them.
+      if (newBalance != null) {
+        broadcast({ type: 'balance_update', userId: pos.user_id, newBalance, groupId: contract.group_id });
+      }
     }
   }
 
@@ -372,7 +488,7 @@ router.post('/:id/undo-settle', requireAdmin, (req, res) => {
   db.prepare("UPDATE contracts SET status = 'active', resolution = NULL, resolved_at = NULL, last_eval_reason = NULL, last_eval_at = NULL WHERE id = ?").run(contractId);
 
   const updated = db.prepare('SELECT c.*, u.username as creator FROM contracts c LEFT JOIN users u ON c.created_by = u.id WHERE c.id = ?').get(contractId);
-  broadcast({ type: 'contract_updated', contract: enrichContract(updated) });
+  broadcast({ type: 'contract_updated', contract: enrichContract(updated), groupId: updated.group_id });
   console.log(`[contract ${contractId}] Undo settle — was ${contract.resolution}, reversed ${positions.filter(p => p.side === contract.resolution).length} payouts`);
   res.json({ ok: true, contract: enrichContract(updated) });
 });
@@ -400,33 +516,46 @@ function sanitizeCondition(obj) {
 // Close every position for a cancelled contract by refunding each holder
 // the coins they paid in (qty × avg_price) and deleting the position row.
 // Net P&L zero — contract cancellation should be a no-op for holders.
+// Refund routes through adjustBalance so group-scoped wallets get credited
+// instead of the public users.balance when the contract belongs to a group.
 function closeContractPositions(contractId) {
+  const contract = db.prepare('SELECT group_id FROM contracts WHERE id = ?').get(contractId);
+  const gid = contract?.group_id || null;
   const positions = db.prepare('SELECT * FROM positions WHERE contract_id = ?').all(contractId);
   for (const pos of positions) {
     const refund = Math.round(pos.avg_price * pos.quantity);
-    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(refund, pos.user_id);
+    const newBalance = adjustBalance(pos.user_id, gid, refund);
     db.prepare('DELETE FROM positions WHERE id = ?').run(pos.id);
-    const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(pos.user_id).balance;
-    broadcast({ type: 'balance_update', userId: pos.user_id, newBalance });
+    if (newBalance != null) {
+      broadcast({ type: 'balance_update', userId: pos.user_id, newBalance, groupId: gid });
+    }
   }
 }
 
-// Cancel all open orders for a contract and refund coins
+// Cancel all open orders for a contract and refund coins (to the correct wallet).
 function cancelContractOrders(contractId) {
+  const contract = db.prepare('SELECT group_id FROM contracts WHERE id = ?').get(contractId);
+  const gid = contract?.group_id || null;
   const openOrders = db.prepare("SELECT * FROM orders WHERE contract_id = ? AND status IN ('open', 'partial')").all(contractId);
   for (const order of openOrders) {
     const remaining = order.quantity - order.quantity_filled;
     const refund = order.side === 'YES' ? remaining * order.price : remaining * (100 - order.price);
-    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(refund, order.user_id);
+    const newBalance = adjustBalance(order.user_id, gid, refund);
     db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(order.id);
-    broadcast({ type: 'balance_update', userId: order.user_id, newBalance: db.prepare('SELECT balance FROM users WHERE id = ?').get(order.user_id).balance });
+    if (newBalance != null) {
+      broadcast({ type: 'balance_update', userId: order.user_id, newBalance, groupId: gid });
+    }
   }
 }
 
-// Settle a contract: pay winners, cancel open orders
-function settleContract(contractId, resolution) {
+// Settle a contract: pay winners, cancel open orders. Winners get credited in
+// the contract's own wallet context (public users.balance or group_members.balance).
+// `reason` is a short admin-supplied explanation (optional for public contracts,
+// required server-side for group contracts per the /resolve handler).
+function settleContract(contractId, resolution, reason = null) {
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId);
-  db.prepare("UPDATE contracts SET status = 'resolved', resolution = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?").run(resolution, contractId);
+  const gid = contract?.group_id || null;
+  db.prepare("UPDATE contracts SET status = 'resolved', resolution = ?, resolved_at = CURRENT_TIMESTAMP, resolve_reason = ? WHERE id = ?").run(resolution, reason, contractId);
 
   // Pay out positions
   const positions = db.prepare('SELECT * FROM positions WHERE contract_id = ?').all(contractId);
@@ -434,25 +563,29 @@ function settleContract(contractId, resolution) {
     const won = pos.side === resolution;
     if (won) {
       const payout = pos.quantity * 100;
-      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(payout, pos.user_id);
-      const newBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(pos.user_id).balance;
-      broadcast({ type: 'balance_update', userId: pos.user_id, newBalance });
+      const newBalance = adjustBalance(pos.user_id, gid, payout);
+      if (newBalance != null) {
+        broadcast({ type: 'balance_update', userId: pos.user_id, newBalance, groupId: gid });
+      }
     }
     // Fire-and-forget push to both winners and losers so they know the outcome.
-    // Bots get a no-op (no subscriptions registered), so this is safe.
-    const staked = Math.round(pos.avg_price * pos.quantity);
-    const pnl = won ? (pos.quantity * 100 - staked) : -staked;
-    pushToUser(pos.user_id, {
-      title: won ? `You won 🪙 +${pnl}` : `You lost 🪙 ${pnl}`,
-      body: `"${contract?.title || 'Your market'}" settled ${resolution}.`,
-      url: '/portfolio',
-    }).catch(() => {});
+    // Bots get a no-op (no subscriptions registered), so this is safe. Only
+    // send for public contracts to start — group push plumbing is TBD.
+    if (!gid) {
+      const staked = Math.round(pos.avg_price * pos.quantity);
+      const pnl = won ? (pos.quantity * 100 - staked) : -staked;
+      pushToUser(pos.user_id, {
+        title: won ? `You won 🪙 +${pnl}` : `You lost 🪙 ${pnl}`,
+        body: `"${contract?.title || 'Your market'}" settled ${resolution}.`,
+        url: '/portfolio',
+      }).catch(() => {});
+    }
   }
 
   // Cancel remaining open orders and refund
   cancelContractOrders(contractId);
 
-  broadcast({ type: 'contract_resolved', contractId, resolution });
+  broadcast({ type: 'contract_resolved', contractId, resolution, groupId: gid });
 }
 
 module.exports = router;
