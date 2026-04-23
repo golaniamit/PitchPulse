@@ -174,9 +174,12 @@ function FeedbackForm() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Feedback & Suggestions</h1>
           <span className="text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded-full tracking-wide uppercase">Beta</span>
         </div>
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
-          <p className="font-semibold mb-1">🚧 This app is a work in progress.</p>
-          <p>You're among the first people using PitchPulse. Things might be rough around the edges — and that's exactly why your input matters. Whether it's a bug, a missing feature, or just an idea for an interesting contract during the next match, share it here. Everything gets read.</p>
+        {/* Mobile gets a one-line tagline so the form doesn't sit below the
+            fold. Desktop keeps the fuller pitch — room to explain the "why". */}
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 sm:p-4 text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+          <p className="font-semibold mb-0 sm:mb-1">🚧 This app is a work in progress.</p>
+          <p className="hidden sm:block">You're among the first people using PitchPulse. Things might be rough around the edges — and that's exactly why your input matters. Whether it's a bug, a missing feature, or just an idea for an interesting contract during the next match, share it here. Everything gets read.</p>
+          <p className="sm:hidden text-xs mt-1">Share anything rough, missing, or broken — everything gets read.</p>
         </div>
       </div>
 

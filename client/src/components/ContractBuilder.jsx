@@ -347,8 +347,17 @@ function PhaseGlyph({ phase }) {
 
 function TeamGrid({ teams, selectedId, onSelect, compact = false, exclude }) {
   const visibleTeams = exclude ? teams.filter(t => t.id !== exclude) : teams;
+  // Compact mode used to cram 10 teams into a single row which was
+  // unreadable on phones. Now it's responsive: 5 × 2 rows on mobile
+  // (logos stay finger-tappable), 10 × 1 row on desktop. Logos scale up
+  // on mobile too so users can actually recognise them. Short codes show
+  // on mobile even in compact mode — hidden on desktop where the tighter
+  // layout already fits and the labels would add clutter.
+  const gridCls = compact
+    ? 'grid grid-cols-5 sm:grid-cols-10 gap-1.5 sm:gap-1'
+    : 'grid grid-cols-5 gap-2';
   return (
-    <div className={`grid ${compact ? 'grid-cols-10 gap-1' : 'grid-cols-5 gap-2'}`}>
+    <div className={gridCls}>
       {visibleTeams.map(t => (
         <button
           key={t.id}
@@ -360,8 +369,15 @@ function TeamGrid({ teams, selectedId, onSelect, compact = false, exclude }) {
               : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'
           }`}
         >
-          <img src={t.logo_path} alt={t.short_code} className={`${compact ? 'w-7 h-7' : 'w-12 h-12'} object-contain`} />
-          {!compact && <span className="text-[10px] font-bold text-gray-700 dark:text-gray-200 tracking-wide">{t.short_code}</span>}
+          <img
+            src={t.logo_path}
+            alt={t.short_code}
+            className={compact ? 'w-10 h-10 sm:w-7 sm:h-7 object-contain' : 'w-12 h-12 object-contain'}
+          />
+          {/* Always show label in non-compact; in compact show on mobile only. */}
+          <span className={`text-[10px] font-bold text-gray-700 dark:text-gray-200 tracking-wide ${compact ? 'sm:hidden' : ''}`}>
+            {t.short_code}
+          </span>
         </button>
       ))}
     </div>
@@ -382,6 +398,11 @@ function PlayerGrid({ teamId, selectedId, onSelect, onAddPlayer }) {
   const [players, setPlayers] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  // Once the admin has picked a player, collapse the grid — saves the
+  // long scroll past 20+ headshots to get to the over / threshold inputs
+  // below. They can still click "Change" to re-expand.
+  const [expandedManually, setExpandedManually] = useState(false);
+  const collapsed = !!selectedId && !expandedManually;
 
   useEffect(() => {
     if (!teamId) { setPlayers([]); return; }
@@ -405,6 +426,40 @@ function PlayerGrid({ teamId, selectedId, onSelect, onAddPlayer }) {
     return <p className="text-xs text-gray-400 italic">Pick a team first to see its squad.</p>;
   }
 
+  // Collapsed state: show just the chosen player + a "Change" action. Hides
+  // the long squad grid so the admin can see the over / threshold inputs
+  // without scrolling.
+  if (collapsed) {
+    const chosen = players.find(p => p.id === selectedId);
+    if (chosen) {
+      return (
+        <div className="flex items-center gap-3 p-2 rounded-xl border-2 border-navy-800 bg-navy-800/5 dark:bg-navy-800/30">
+          {chosen.headshot_path ? (
+            <img
+              src={chosen.headshot_path}
+              alt={chosen.name}
+              className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+              style={{ objectPosition: 'center top', boxShadow: `0 0 0 2px ${chosen.team_colour || '#1a1a2e'}` }}
+            />
+          ) : (
+            <PlayerInitials name={chosen.name} colour={chosen.team_colour || '#1a1a2e'} size={48} />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{chosen.name}</p>
+            {chosen.role && <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{chosen.role}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpandedManually(true)}
+            className="text-xs font-semibold text-navy-800 dark:text-gray-200 hover:underline flex-shrink-0"
+          >
+            Change
+          </button>
+        </div>
+      );
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-2 gap-2">
@@ -424,7 +479,7 @@ function PlayerGrid({ teamId, selectedId, onSelect, onAddPlayer }) {
           <button
             key={p.id}
             type="button"
-            onClick={() => onSelect(p.id)}
+            onClick={() => { onSelect(p.id); setExpandedManually(false); }}
             className={`p-2 rounded-xl border-2 flex flex-col items-center gap-1 text-center transition-colors ${
               selectedId === p.id
                 ? 'border-navy-800 bg-navy-800/5 dark:bg-navy-800/30'
@@ -884,7 +939,10 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
           {phase && (
             <div>
               <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Step 2 · Prediction type</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {/* Mobile: 2 cols — keeps the description (still a key disambiguator
+                  between e.g. team_total vs team_wickets) while halving vertical
+                  space. sm+ stays at 2 cols, lg at 3. */}
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                 {types.map(t => (
                   <TypeTile key={t.id} active={type === t.id} title={t.label} desc={t.desc}
                             onClick={() => selectType(t.id)} />

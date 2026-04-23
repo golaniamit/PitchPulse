@@ -210,23 +210,66 @@ export default function GroupSettings() {
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{detail.name}</h1>
       </div>
 
-      {/* Overview cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700">
+      {/* Overview cards. Mobile: 3-col row so the three summary stats fit
+          in ~100px of vertical space instead of ~270px. The helper text
+          under Starting coins and the inline "(N resolved)" suffix only
+          show on sm+ where the columns are wide enough to breathe. */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-5">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 border border-slate-100 dark:border-gray-700">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{detail.member_count}<span className="text-sm text-slate-400 font-normal">/50</span></p>
+          <p className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">{detail.member_count}<span className="text-xs sm:text-sm text-slate-400 font-normal">/50</span></p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 border border-slate-100 dark:border-gray-700">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Starting coins</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">🪙 {detail.starting_coins?.toLocaleString()}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Given to new members</p>
+          <p className="text-base sm:text-xl font-bold text-slate-900 dark:text-white mt-1">🪙 {detail.starting_coins?.toLocaleString()}</p>
+          <p className="hidden sm:block text-[10px] text-slate-400 mt-0.5">Given to new members</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total contracts</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 border border-slate-100 dark:border-gray-700">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contracts</p>
+          <p className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
             {detail.contract_count}
-            <span className="text-sm text-slate-400 font-normal ml-2">({detail.resolved_count} resolved)</span>
+            <span className="hidden sm:inline text-sm text-slate-400 font-normal ml-2">({detail.resolved_count} resolved)</span>
           </p>
+          <p className="sm:hidden text-[10px] text-slate-400 mt-0.5">{detail.resolved_count} resolved</p>
+        </div>
+      </div>
+
+      {/* Invite — moved up to sit right under the overview cards. Growing
+          the group is the main thing an admin does after creating it, so
+          this belongs above the rename/members/danger-zone grid rather
+          than in the bottom row it used to share with notifications. */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700 mt-5">
+        <p className="text-sm font-bold text-slate-900 dark:text-white">Invite friends</p>
+        <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Share the link. Anyone with it can join (up to 50).</p>
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          <code className="flex-1 min-w-0 truncate text-[11px] sm:text-xs bg-slate-100 dark:bg-gray-900 text-slate-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-700">
+            {inviteUrl}
+          </code>
+          <button onClick={copyInvite} className="text-xs font-semibold bg-navy-800 text-white px-3 py-2 rounded-lg">
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2 items-center">
+          <a
+            href={whatsappUrl} target="_blank" rel="noreferrer"
+            className="flex items-center gap-1.5 text-xs font-semibold bg-[#25D366] text-white px-3 py-2 rounded-lg hover:opacity-90"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+            </svg>
+            WhatsApp
+          </a>
+          <a
+            href={mailtoUrl}
+            className="flex items-center gap-1.5 text-xs font-semibold bg-slate-600 text-white px-3 py-2 rounded-lg hover:bg-slate-700"
+          >
+            <span>✉️</span> Email
+          </a>
+          {isAdmin && (
+            <button onClick={regenerate} className="ml-auto text-[11px] text-slate-500 underline hover:text-slate-800 dark:hover:text-white">
+              Rotate link
+            </button>
+          )}
         </div>
       </div>
 
@@ -307,46 +350,13 @@ export default function GroupSettings() {
         </div>
       </div>
 
-      {/* Bottom row — invite (widest), notifications, danger zone. On lg+ they
-          sit in a 12-col grid with invite taking 7/12, notifications 2/12 and
-          danger 3/12. Collapses to a vertical stack on mobile. */}
+      {/* Bottom row — notifications + danger zone. Invite moved above, so
+          these two split the row now (notifications 5/12, danger 7/12 on
+          lg+). Stacks on mobile. */}
       <div className="mt-5 grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
 
-        {/* Invite — biggest tile */}
-        <div className="lg:col-span-7 bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700 flex flex-col">
-          <p className="text-sm font-bold text-slate-900 dark:text-white">Invite friends</p>
-          <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Share the link. Anyone with it can join (up to 50).</p>
-          <div className="mt-3 flex items-center gap-2 flex-wrap">
-            <code className="flex-1 min-w-0 truncate text-[11px] sm:text-xs bg-slate-100 dark:bg-gray-900 text-slate-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-700">
-              {inviteUrl}
-            </code>
-            <button onClick={copyInvite} className="text-xs font-semibold bg-navy-800 text-white px-3 py-2 rounded-lg">
-              {copied ? '✓ Copied' : 'Copy'}
-            </button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2 items-center">
-            <a
-              href={whatsappUrl} target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs font-semibold bg-[#25D366] text-white px-3 py-2 rounded-lg hover:opacity-90"
-            >
-              <span>💬</span> WhatsApp
-            </a>
-            <a
-              href={mailtoUrl}
-              className="flex items-center gap-1.5 text-xs font-semibold bg-slate-600 text-white px-3 py-2 rounded-lg hover:bg-slate-700"
-            >
-              <span>✉️</span> Email
-            </a>
-            {isAdmin && (
-              <button onClick={regenerate} className="ml-auto text-[11px] text-slate-500 underline hover:text-slate-800 dark:hover:text-white">
-                Rotate link
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Notifications — compact tile with title stacked above the toggle */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700 flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-white dark:bg-gray-800 rounded-xl p-4 border border-slate-100 dark:border-gray-700 flex flex-col justify-between">
           <div>
             <p className="text-sm font-bold text-slate-900 dark:text-white">🔔 Notifications</p>
             <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5 leading-snug">
@@ -375,7 +385,7 @@ export default function GroupSettings() {
         </div>
 
         {/* Danger zone — admin: reset + delete stacked; member: leave */}
-        <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-100 dark:border-red-900 flex flex-col">
+        <div className="lg:col-span-7 bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-100 dark:border-red-900 flex flex-col">
           <p className="text-sm font-bold text-red-600 dark:text-red-400">Danger zone</p>
           {isAdmin ? (
             <>

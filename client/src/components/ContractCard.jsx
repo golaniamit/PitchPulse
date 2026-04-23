@@ -294,7 +294,7 @@ export default function ContractCard({ contract, tourTarget }) {
   return (
     <div
       data-tour={tourTarget ? 'contract-card' : undefined}
-      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 pb-2 sm:pb-4 cursor-pointer hover:shadow-md transition-shadow"
       onClick={() => navigate(`/contract/${contract.id}`)}
     >
       {/* ── NEW 3-SLOT HEADER ───────────────────────────────────── */}
@@ -351,7 +351,11 @@ export default function ContractCard({ contract, tourTarget }) {
           {/* Sentiment bar — only when real trades exist */}
           {hasTrades ? (
             <div data-tour={tourTarget ? 'price-bar' : undefined} className="mb-4">
-              <div className="flex justify-between items-center mb-1">
+              {/* "Market sentiment" label + "% of money is on YES" is
+                  desktop-only — on mobile the bar itself plus the
+                  YES/NO row below it already convey sentiment, and
+                  this top line was pure redundancy eating a row per card. */}
+              <div className="hidden sm:flex justify-between items-center mb-1">
                 <span className="text-xs font-medium text-gray-400 dark:text-gray-500">Market sentiment</span>
                 <span className="text-xs text-gray-400 dark:text-gray-500">{sentimentPrice}% of money is on YES</span>
               </div>
@@ -368,7 +372,10 @@ export default function ContractCard({ contract, tourTarget }) {
             </div>
           ) : stateCD ? (
             <div data-tour={tourTarget ? 'price-bar' : undefined} className="mb-4">
-              <div className="flex justify-between items-center mb-1">
+              {/* Same idea — the "Market forming / no trades yet" top row
+                  is desktop-only; the YES @ / NO @ row below carries the
+                  state info on its own. */}
+              <div className="hidden sm:flex justify-between items-center mb-1">
                 <span className="text-xs font-medium text-gray-400 dark:text-gray-500">Market forming</span>
                 <span className="text-xs text-gray-400 dark:text-gray-500">no trades yet</span>
               </div>
@@ -387,7 +394,11 @@ export default function ContractCard({ contract, tourTarget }) {
 
           {/* STATE A — no offers either side */}
           {stateA && (
-            <div className="mb-2">
+            // No outer mb-2 or trailing py-1 — the "+ Bid at a custom price →"
+            // link is the last thing in the card and the parent p-4 already
+            // gives the card its bottom padding. Extra margin here was
+            // showing as dead space below the CTA on mobile.
+            <div>
               <div className="flex items-center gap-2 py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-3">
                 <span className="text-base">🕐</span>
                 <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">No offers yet — be the first to set a price</span>
@@ -408,7 +419,7 @@ export default function ContractCard({ contract, tourTarget }) {
                   <div className="text-xs text-no/70 dark:text-no mt-0.5">set your price →</div>
                 </button>
               </div>
-              <button onClick={goToDetail} className="w-full text-center text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-1 transition-colors">
+              <button onClick={goToDetail} className="w-full text-center text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                 + Bid at a custom price →
               </button>
             </div>

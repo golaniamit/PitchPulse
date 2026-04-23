@@ -3,52 +3,55 @@ import { useAuth } from '../context/AuthContext';
 
 // type: 'intro' | 'outro' | 'spotlight'
 const STEPS = [
+  // Body copy kept short — each line renders inside a ~300px tooltip on
+  // mobile, so 3-line paragraphs dominated the viewport. Tightened to 1-2
+  // lines each without losing the lesson.
   {
     type: 'intro',
     title: 'Welcome to PitchPulse',
-    body: "If you're unfamiliar with player-vs-player prediction games, here's a quick tour to get you started.",
+    body: "New to prediction games? Here's a quick tour — 30 seconds.",
   },
   {
     type: 'spotlight',
     target: '[data-tour="balance"]',
     title: '🪙 Your budget',
-    body: 'Everyone starts with 10,000 coins. Play, win and top the leaderboard.',
+    body: 'Everyone starts with 10,000 coins. Play, win, top the leaderboard.',
     callout: '🚫 No real money, ever.',
   },
   {
     type: 'spotlight',
     target: '[data-tour="contract-card"]',
     title: '📋 The questions',
-    body: 'Each card is a YES/NO question about what might happen in the match. New cards appear as the match progresses.',
+    body: 'Each card is a YES/NO question about the match. New ones drop as the game unfolds.',
   },
   {
     type: 'spotlight',
     target: '[data-tour="bet-buttons"]',
     title: '🎯 Placing your bet',
-    body: "Tap YES if you think it'll happen, NO if you don't. Your bet only goes live when another player takes the other side at that price — always player vs player, never the house.",
+    body: "Tap YES if you think it'll happen, NO if not. Your bet goes live only when another player takes the other side — player vs player, never the house.",
   },
   {
     type: 'spotlight',
     target: '[data-tour="price-bar"]',
     title: '📊 Market sentiment',
-    body: "The bar reflects current market sentiment based on other players' bets and fluctuates with every bet placed. It directly impacts the price available to you.",
+    body: "The bar shows where other players are betting. It moves with every trade — and moves the price you pay.",
   },
   {
     type: 'spotlight',
     target: '[data-tour="nav-portfolio"]',
     title: '📁 Your Portfolio',
-    body: 'All your active bets live here. Check in any time to track how your predictions are playing out.',
+    body: 'Your active bets live here. Track how your predictions are playing out.',
   },
   {
     type: 'spotlight',
     target: '[data-tour="nav-feedback"]',
     title: '🚧 This is a Beta',
-    body: "PitchPulse is still being built and refined. If something feels off, a feature is missing, or you have ideas — drop them in the Feedback tab. Every suggestion helps shape the game.",
+    body: "Still being built. Bugs, missing features, or ideas? Drop them in Feedback — every suggestion shapes the game.",
   },
   {
     type: 'outro',
     title: "You're all set! 🏏",
-    body: "Now sit back, watch the cricket and outpredict your friends. Back the right calls, stack your coins and climb to the top. May the sharpest mind win. 🏆",
+    body: "Sit back, watch the cricket, outpredict your friends. Stack coins, climb the board. May the sharpest mind win. 🏆",
   },
 ];
 

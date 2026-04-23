@@ -82,7 +82,7 @@ export default function CreateGroupModal({ open, onClose }) {
 
         <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-2.5">
           <p className="text-[11px] text-blue-900 dark:text-blue-200 leading-snug">
-            <span className="font-semibold">💡 You'll be the group's admin.</span> You can create contracts and resolve them. Friends bet against each other.
+            <span className="font-semibold">💡 You'll be the group's admin</span> — you create and resolve contracts that friends bet on.
           </p>
         </div>
 
