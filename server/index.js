@@ -20,6 +20,7 @@ const feedbackRoutes = require('./routes/feedback');
 const pushRoutes = require('./routes/push');
 const teamRoutes = require('./routes/teams');
 const playerRoutes = require('./routes/players');
+const devHelperRoutes = require('./routes/dev-helpers');
 
 const app = express();
 const server = http.createServer(app);
@@ -57,6 +58,7 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/players', playerRoutes);
 app.use('/api/groups', require('./routes/groups'));
+app.use('/api/dev', devHelperRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));

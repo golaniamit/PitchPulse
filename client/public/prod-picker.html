@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prod contract picker — MI vs GT</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: #f6f7fb; }
+  .badge { font-size:10px; letter-spacing:0.06em; font-weight:800; padding:2px 8px; border-radius:9999px; text-transform:uppercase; }
+  .b-over     { background:#1a1a2e; color:#fff; }
+  .b-byover   { background:#1a1a2e; color:#facc15; }
+  .b-power    { background:#1a1a2e; color:#fbbf24; }
+  .b-death    { background:#1a1a2e; color:#ef5350; }
+  .b-match    { background:#16213e; color:#fff; }
+  .b-innings  { background:#1a1a2e; color:#fff; border:1px solid #444; }
+</style>
+</head>
+<body>
+<div class="max-w-3xl mx-auto px-6 py-10">
+  <h1 class="text-2xl font-black text-gray-900 mb-1">Create contracts on prod · MI vs GT</h1>
+  <p class="text-gray-600 text-sm mb-5">Tick the ones you want. "Create selected" forwards them to <code>https://www.pitchpulse.co.in/api/contracts</code> via the stored admin session, all as drafts.</p>
+
+  <div class="flex gap-2 mb-4">
+    <button onclick="toggleAll(true)"  class="px-3 py-1.5 rounded-lg bg-navy-800 bg-gray-900 text-white text-xs font-semibold">Select all</button>
+    <button onclick="toggleAll(false)" class="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-xs font-semibold bg-white">Unselect all</button>
+    <span id="count" class="ml-auto text-xs text-gray-500 self-center"></span>
+  </div>
+
+  <ul id="list" class="space-y-2 mb-6"></ul>
+
+  <div class="flex items-center gap-3">
+    <button id="submit" onclick="submit()" class="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-sm">Create selected as drafts on prod</button>
+    <a href="https://www.pitchpulse.co.in/admin" target="_blank" class="text-xs text-blue-600 underline">Open prod admin ↗</a>
+  </div>
+
+  <div id="results" class="mt-6 space-y-1.5"></div>
+</div>
+
+<script>
+// ── Prod team + player IDs (resolved server-side before embedding) ──
+const T = { MI: 2, GT: 9 };
+const P = { ROHIT: 28, BUMRAH: 29, GILL: 192, RASHID: 193 };
+
+// ── 14 draft contract payloads ──
+const CONTRACTS = [
+  // 1. Toss
+  {
+    phase:'match', type:'toss_winner', subject_kind:'team', team_id:T.MI,
+    title:'Will Mumbai Indians win the toss today?',
+    condition_json:{ type:'toss_winner', team:'MI' },
+    badge:'MATCH', badgeClass:'b-match',
+  },
+  // 2. Match winner — opposite side of the one I already created
+  {
+    phase:'match', type:'match_winner', subject_kind:'matchup',
+    team_id:T.GT, opponent_team_id:T.MI,
+    title:'Will Gujarat Titans beat Mumbai Indians today?',
+    condition_json:{ type:'match_winner', team:'GT', opponent:'MI' },
+    badge:'MATCH', badgeClass:'b-match',
+  },
+  // 3. 1st innings score
+  {
+    phase:'match', type:'innings_score', subject_kind:'team',
+    team_id:T.MI, innings_number:1,
+    title:'Will Mumbai Indians score at least 180 runs?',
+    condition_json:{ type:'innings_score', team:'MI', innings:1, operator:'>=', threshold:180 },
+    badge:'1ST INN', badgeClass:'b-innings',
+  },
+  // 4. Team total by over
+  {
+    phase:'by_over', type:'team_total', subject_kind:'team',
+    team_id:T.MI, over_number:12,
+    title:'Will Mumbai Indians reach at least 100 runs by end of over 12?',
+    condition_json:{ type:'team_total', team:'MI', by_over:12, operator:'>=', threshold:100 },
+    badge:'BY OV 12', badgeClass:'b-byover',
+  },
+  // 5. Team wickets by over
+  {
+    phase:'by_over', type:'team_wickets_by_over', subject_kind:'team',
+    team_id:T.GT, over_number:10,
+    title:'Will Gujarat Titans lose 3+ wickets by end of over 10?',
+    condition_json:{ type:'team_wickets_by_over', team:'GT', by_over:10, min_wickets:3 },
+    badge:'BY OV 10', badgeClass:'b-byover',
+  },
+  // 6. Batsman milestone — Rohit
+  {
+    phase:'by_over', type:'batsman_milestone', subject_kind:'player',
+    player_id:P.ROHIT, team_id:T.MI, over_number:15,
+    title:'Will Rohit Sharma score 50+ runs by end of over 15?',
+    condition_json:{ type:'batsman_milestone', batsman:'Rohit Sharma', milestone:50, by_over:15 },
+    badge:'BY OV 15', badgeClass:'b-byover',
+  },
+  // 7. Batsman milestone — Gill
+  {
+    phase:'by_over', type:'batsman_milestone', subject_kind:'player',
+    player_id:P.GILL, team_id:T.GT, over_number:10,
+    title:'Will Shubman Gill score 30+ runs by end of over 10?',
+    condition_json:{ type:'batsman_milestone', batsman:'Shubman Gill', milestone:30, by_over:10 },
+    badge:'BY OV 10', badgeClass:'b-byover',
+  },
+  // 8. Bowler wickets — Bumrah
+  {
+    phase:'by_over', type:'bowler_wickets_by_over', subject_kind:'player',
+    player_id:P.BUMRAH, team_id:T.MI, over_number:18,
+    title:'Will Jasprit Bumrah take 2+ wickets by end of over 18?',
+    condition_json:{ type:'bowler_wickets_by_over', bowler:'Jasprit Bumrah', by_over:18, min_wickets:2 },
+    badge:'BY OV 18', badgeClass:'b-byover',
+  },
+  // 9. Bowler wickets — Rashid
+  {
+    phase:'by_over', type:'bowler_wickets_by_over', subject_kind:'player',
+    player_id:P.RASHID, team_id:T.GT, over_number:18,
+    title:'Will Rashid Khan take 2+ wickets by end of over 18?',
+    condition_json:{ type:'bowler_wickets_by_over', bowler:'Rashid Khan', by_over:18, min_wickets:2 },
+    badge:'BY OV 18', badgeClass:'b-byover',
+  },
+  // 10. Runs in over
+  {
+    phase:'over', type:'runs_over', subject_kind:'team',
+    team_id:T.MI, over_number:6,
+    title:'Will Mumbai Indians score 15+ runs in over 6?',
+    condition_json:{ type:'runs_over', team:'MI', over:6, operator:'>=', threshold:15 },
+    badge:'OVER 6', badgeClass:'b-over',
+  },
+  // 11. Wicket in over
+  {
+    phase:'over', type:'wicket_over', subject_kind:'team',
+    team_id:T.GT, over_number:15,
+    title:'Will Gujarat Titans lose a wicket in over 15?',
+    condition_json:{ type:'wicket_over', batting_team:'GT', over:15, min_wickets:1 },
+    badge:'OVER 15', badgeClass:'b-over',
+  },
+  // 12. Boundaries in over
+  {
+    phase:'over', type:'boundary_over', subject_kind:'team',
+    team_id:T.MI, over_number:18,
+    title:'Will Mumbai Indians hit 2+ sixes in over 18?',
+    condition_json:{ type:'boundary_over', team:'MI', over:18, boundary_type:'six', boundary_count:2 },
+    badge:'OVER 18', badgeClass:'b-over',
+  },
+  // 13. Runs in powerplay
+  {
+    phase:'powerplay', type:'runs_powerplay', subject_kind:'team',
+    team_id:T.MI,
+    title:'Will Mumbai Indians score 55+ runs in the powerplay?',
+    condition_json:{ type:'runs_powerplay', team:'MI', operator:'>=', threshold:55 },
+    badge:'POWERPLAY', badgeClass:'b-power',
+  },
+  // 14. Boundaries in death overs
+  {
+    phase:'death', type:'boundaries_death', subject_kind:'team',
+    team_id:T.GT,
+    title:'Will Gujarat Titans hit 4+ sixes in the death overs?',
+    condition_json:{ type:'boundaries_death', team:'GT', boundary_type:'six', boundary_count:4 },
+    badge:'DEATH OVERS', badgeClass:'b-death',
+  },
+];
+
+function updateCount() {
+  const picked = document.querySelectorAll('#list input[type=checkbox]:checked').length;
+  document.getElementById('count').textContent = `${picked} of ${CONTRACTS.length} selected`;
+}
+function render() {
+  document.getElementById('list').innerHTML = CONTRACTS.map((c, i) => `
+    <li class="flex items-start gap-3 p-3 bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
+      <input type="checkbox" id="c${i}" checked onchange="updateCount()" class="w-5 h-5 mt-0.5 cursor-pointer accent-green-600">
+      <label for="c${i}" class="flex-1 cursor-pointer">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="badge ${c.badgeClass}">${c.badge}</span>
+          <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400">${c.type.replace(/_/g,' ')}</span>
+        </div>
+        <div class="font-medium text-sm text-gray-900 leading-snug">${c.title}</div>
+      </label>
+    </li>
+  `).join('');
+  updateCount();
+}
+function toggleAll(v) {
+  document.querySelectorAll('#list input[type=checkbox]').forEach(cb => cb.checked = v);
+  updateCount();
+}
+
+async function submit() {
+  const selected = CONTRACTS.filter((_, i) => document.getElementById('c' + i).checked);
+  if (!selected.length) return;
+  const btn = document.getElementById('submit');
+  btn.disabled = true; btn.textContent = `Creating ${selected.length}…`;
+  const payloads = selected.map(({ badge, badgeClass, ...rest }) => ({ ...rest, status:'draft', resolve_mode:'manual' }));
+  try {
+    const r = await fetch('http://localhost:3001/api/dev/prod-create-contracts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contracts: payloads }),
+    });
+    const d = await r.json();
+    renderResults(d.results || []);
+  } catch (e) {
+    document.getElementById('results').innerHTML = `<div class="p-3 rounded-lg bg-red-50 text-sm text-red-800">Network error: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create selected as drafts on prod';
+  }
+}
+
+function renderResults(rs) {
+  const ok = rs.filter(r => r.ok).length;
+  const bad = rs.length - ok;
+  document.getElementById('results').innerHTML = `
+    <div class="p-3 rounded-lg ${bad ? 'bg-amber-50' : 'bg-green-50'} text-sm font-bold">
+      ${ok} created · ${bad} failed
+    </div>
+    ${rs.map(r => `
+      <div class="flex items-center gap-2 p-2 rounded text-xs ${r.ok ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-900'}">
+        <span>${r.ok ? '✓' : '✗'}</span>
+        <span class="font-mono">${r.ok ? '#' + r.id : 'HTTP ' + (r.status || '–')}</span>
+        <span class="flex-1 truncate">${r.title}</span>
+        ${r.error ? `<span class="opacity-75">${r.error}</span>` : ''}
+      </div>
+    `).join('')}
+  `;
+}
+
+render();
+</script>
+</body>
+</html>
