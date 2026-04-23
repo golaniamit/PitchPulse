@@ -235,45 +235,45 @@ export default function Login() {
       <div className="w-full max-w-sm">
 
         {/* Logo + Wordmark */}
-        <div className="flex flex-col items-center mb-6 gap-3">
-          <div className="rounded-3xl p-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
-            <PitchPulseLogo size={72} showWordmark={false} dark={true} />
+        <div className="flex flex-col items-center mb-3 sm:mb-5 gap-1.5 sm:gap-2">
+          <div className="rounded-2xl p-2" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <PitchPulseLogo size={48} showWordmark={false} dark={true} />
           </div>
-          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '2.5rem', letterSpacing: '-1.5px', lineHeight: 1 }}>
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.875rem', letterSpacing: '-1.2px', lineHeight: 1 }}>
             <span style={{ fontWeight: 300, color: 'rgba(255,255,255,0.9)' }}>pitch</span>
             <span style={{ fontWeight: 800, color: '#00c896' }}>Pulse</span>
           </p>
-          <p className="text-white/40 text-xs tracking-widest uppercase">Predict · Trade · Win</p>
+          <p className="text-white/40 text-[10px] tracking-widest uppercase">Predict · Trade · Win</p>
         </div>
 
-        {/* App description */}
-        <div className="text-center mb-5 px-1">
-          <p className="text-white/90 text-base font-semibold leading-snug mb-3">
+        {/* App description — one tight line on mobile, two on sm+ */}
+        <div className="text-center mb-3 sm:mb-4 px-1">
+          <p className="text-white/90 text-sm sm:text-base font-semibold leading-snug">
             Live prediction markets for IPL matches.
           </p>
-          <p className="text-white/60 text-sm leading-relaxed">
+          <p className="hidden sm:block text-white/60 text-sm leading-relaxed mt-2">
             Read the game. Back your instincts. Beat everyone else.
           </p>
         </div>
 
-        {/* Play money — prominent banner */}
-        <div className="mb-5 rounded-2xl overflow-hidden" style={{ background: 'rgba(0,200,150,0.12)', border: '1.5px solid rgba(0,200,150,0.35)' }}>
-          <div className="flex items-center justify-center gap-2 py-2.5 px-4" style={{ background: 'rgba(0,200,150,0.18)' }}>
-            <span className="text-xl">🪙</span>
-            <span className="text-[#00c896] font-black text-sm tracking-wide uppercase">Play coins only</span>
-            <span className="text-xl">🪙</span>
+        {/* Play money — compact single-row banner on mobile */}
+        <div className="mb-3 sm:mb-4 rounded-xl sm:rounded-2xl overflow-hidden" style={{ background: 'rgba(0,200,150,0.12)', border: '1.5px solid rgba(0,200,150,0.35)' }}>
+          <div className="flex items-center justify-center gap-2 py-1.5 sm:py-2.5 px-3" style={{ background: 'rgba(0,200,150,0.18)' }}>
+            <span className="text-base sm:text-xl">🪙</span>
+            <span className="text-[#00c896] font-black text-xs sm:text-sm tracking-wide uppercase">Play coins only</span>
+            <span className="text-base sm:text-xl">🪙</span>
           </div>
-          <div className="text-center py-2.5 px-4">
-            <p className="text-white/80 text-sm font-semibold">Zero real money. Zero financial risk.</p>
-            <p className="text-white/45 text-xs mt-0.5">Every user starts with 10,000 free coins.</p>
+          <div className="text-center py-1.5 sm:py-2.5 px-3">
+            <p className="text-white/80 text-xs sm:text-sm font-semibold">Zero real money · 10,000 free coins to start</p>
+            <p className="hidden sm:block text-white/45 text-xs mt-0.5">Zero financial risk. Zero real money.</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-xl">
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-xl">
 
 
           {/* Login / Register toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
+          <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-4 sm:mb-6">
             <button
               className={`flex-1 py-2 text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-navy-800 text-white' : 'text-gray-500'}`}
               onClick={() => switchMode('login')}
