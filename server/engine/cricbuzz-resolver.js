@@ -474,6 +474,83 @@ function evalPlayerMatchStat(condition, match, scorecard) {
   return null;
 }
 
+// player_runs: "Will <player> score N+ runs in this match?"
+// Resolves YES the moment the batsman crosses the threshold (runs are monotonic
+// — they can only go up). Resolves NO if the batsman is dismissed below the
+// threshold (can't score any more), OR if the match ends and the batsman never
+// reached it (including the case where they never came to bat).
+function evalPlayerRuns(condition, match, scorecard) {
+  if (!scorecard) return null;
+  const { player, threshold, operator } = condition;
+  if (!player || typeof threshold !== 'number') return null;
+  const op = operator || '>=';
+
+  for (const inn of scorecard.innings || []) {
+    const b = (inn.batsmen || []).find(x => playerNameMatches(player, x.name));
+    if (!b) continue;
+    const runs = b.runs ?? 0;
+    // Monotonic early-YES for >= and > thresholds.
+    if ((op === '>=' || op === '>') && compare(runs, op, threshold) === true) return true;
+    // Final NO: out below threshold can't recover any more runs.
+    if (b.isOut && (op === '>=' || op === '>') && runs < threshold) return false;
+    // For "below"/"equals" thresholds (rare for player_runs but allowed),
+    // the answer is locked when the batsman is out OR the match completes.
+    if ((op === '<=' || op === '<' || op === '=') && b.isOut) return compare(runs, op, threshold);
+  }
+
+  // Match-end fallback: if we still don't have a definitive answer and the
+  // match is over, lock in based on whatever final state exists. Player who
+  // never came to bat → resolve NO (didn't reach threshold).
+  if (match.result || match.state === 'Complete') {
+    for (const inn of scorecard.innings || []) {
+      const b = (inn.batsmen || []).find(x => playerNameMatches(player, x.name));
+      if (b) return compare(b.runs ?? 0, op, threshold);
+    }
+    return false;
+  }
+  return null;
+}
+
+// player_wickets: "Will <bowler> take N+ wickets in this match?"
+// Resolves YES the moment they reach the threshold (wickets monotonic).
+// Resolves NO when the bowler has bowled their full T20 quota (4 overs)
+// without reaching it, OR the relevant innings is over and they can't bowl
+// more, OR the match completes with them short.
+function evalPlayerWickets(condition, match, scorecard) {
+  if (!scorecard) return null;
+  const { player, threshold, operator } = condition;
+  if (!player || typeof threshold !== 'number') return null;
+  const op = operator || '>=';
+  const MAX_OVERS_T20 = 4;
+
+  for (const inn of scorecard.innings || []) {
+    const b = (inn.bowlers || []).find(x => playerNameMatches(player, x.name));
+    if (!b) continue;
+    const wkts = b.wickets ?? 0;
+    const oversBowled = parseFloat(b.overs) || 0;
+
+    // Monotonic early-YES.
+    if ((op === '>=' || op === '>') && compare(wkts, op, threshold) === true) return true;
+    // Bowler done (full quota) below threshold → NO.
+    if (oversBowled >= MAX_OVERS_T20 && (op === '>=' || op === '>') && wkts < threshold) return false;
+    // The innings the bowler is in has ended (all out or 20 overs done) and
+    // they didn't bowl their full quota — they can't bowl more in this match.
+    const battingInn = inn; // batting team's innings is what the bowler bowled to
+    const inningsClosed = (battingInn.bowlers && battingInn.bowlers.length) &&
+      ((parseFloat(battingInn.batTeamDetails?.overs) || 0) >= 20 || (battingInn.batTeamDetails?.batsmenData && Object.values(battingInn.batTeamDetails.batsmenData).filter(x => x.outDesc && x.outDesc !== 'not out' && x.outDesc !== 'batting' && x.outDesc !== '').length >= 10));
+    if (inningsClosed && (op === '>=' || op === '>') && wkts < threshold) return false;
+  }
+
+  if (match.result || match.state === 'Complete') {
+    for (const inn of scorecard.innings || []) {
+      const b = (inn.bowlers || []).find(x => playerNameMatches(player, x.name));
+      if (b) return compare(b.wickets ?? 0, op, threshold);
+    }
+    return false;
+  }
+  return null;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function compare(value, operator, threshold) {
@@ -575,7 +652,9 @@ function needsOverByOver(type) {
 function needsScorecard(type) {
   return type === 'player_match_stat'
       || type === 'bowler_wickets_by_over'
-      || type === 'batsman_milestone';
+      || type === 'batsman_milestone'
+      || type === 'player_runs'
+      || type === 'player_wickets';
 }
 
 // Human-readable explanation of why a contract is still pending. Called only
@@ -640,6 +719,22 @@ function describePending(condition, match, overs, scorecard) {
     case 'player_match_stat':
       if (!match.result && match.state !== 'Complete') return `Match in progress — ${match.status || match.state}`;
       return 'Pending';
+    case 'player_runs':
+      if (!scorecard) return `Waiting for scorecard`;
+      for (const inn of scorecard.innings || []) {
+        const b = (inn.bowlers || inn.batsmen || []).find(x => x.name && condition.player && x.name.toLowerCase().includes(String(condition.player).toLowerCase()));
+        // Try batsmen specifically
+        const batter = (inn.batsmen || []).find(x => x.name && condition.player && x.name.toLowerCase().includes(String(condition.player).toLowerCase()));
+        if (batter) return `${batter.name} on ${batter.runs} — needs ${condition.threshold} (${batter.isOut ? 'out' : 'still batting'})`;
+      }
+      return `${condition.player} hasn't batted yet`;
+    case 'player_wickets':
+      if (!scorecard) return `Waiting for scorecard`;
+      for (const inn of scorecard.innings || []) {
+        const bowler = (inn.bowlers || []).find(x => x.name && condition.player && x.name.toLowerCase().includes(String(condition.player).toLowerCase()));
+        if (bowler) return `${bowler.name} at ${bowler.wickets} wkts in ${bowler.overs} ov — needs ${condition.threshold}`;
+      }
+      return `${condition.player} hasn't bowled yet`;
     default:
       return `Pending (${type})`;
   }
@@ -671,6 +766,8 @@ function evaluate(condition, match, overs, scorecard) {
     case 'match_winner':            return evalMatchWinner(condition, match);
     case 'toss_winner':             return evalTossWinner(condition, match);
     case 'player_match_stat':       return evalPlayerMatchStat(condition, match, scorecard);
+    case 'player_runs':             return evalPlayerRuns(condition, match, scorecard);
+    case 'player_wickets':          return evalPlayerWickets(condition, match, scorecard);
 
     default:                        return null; // manual / custom / unknown types stay pending
   }
