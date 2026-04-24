@@ -10,8 +10,10 @@ const { listLiveMatches } = require('../engine/cricbuzz');
 const router = express.Router();
 
 // Lightweight in-memory cache — this endpoint can be hit by every user every
-// page load, so we avoid hammering Cricbuzz's live-scores index.
-const cache = { matches: null, at: 0 };
+// page load, so we avoid hammering Cricbuzz's live-scores index. One cache
+// entry per endpoint shape so /live and /all don't trample each other.
+const liveCache = { matches: null, at: 0 };
+const allCache  = { matches: null, at: 0 };
 const CACHE_MS = 60_000; // 60s is plenty — match state changes coarsely.
 
 // Returns the currently in-progress (or innings-break / toss) matches, IPL
@@ -19,8 +21,8 @@ const CACHE_MS = 60_000; // 60s is plenty — match state changes coarsely.
 // shortnames and to decide which contracts to bucket into it.
 router.get('/live', requireAuth, async (req, res) => {
   const now = Date.now();
-  if (cache.matches && (now - cache.at) < CACHE_MS) {
-    return res.json({ matches: cache.matches, cached: true });
+  if (liveCache.matches && (now - liveCache.at) < CACHE_MS) {
+    return res.json({ matches: liveCache.matches, cached: true });
   }
   try {
     const all = await listLiveMatches({ seriesFilter: 'Indian Premier League' });
@@ -32,12 +34,37 @@ router.get('/live', requireAuth, async (req, res) => {
       status: m.status,
       matchDesc: m.matchDesc,
     }));
-    cache.matches = slim;
-    cache.at = now;
+    liveCache.matches = slim;
+    liveCache.at = now;
     res.json({ matches: slim, cached: false });
   } catch (e) {
     // Fail silently — the page still works without live-match info, the Live
     // tab just falls back to a generic label.
+    res.json({ matches: [], error: e.message });
+  }
+});
+
+// Returns the full IPL match list (live + upcoming + recently-completed) with
+// team shortnames and start dates. Used by the Markets feed to label each
+// contract card with the actual matchup ("GT v MI · SAT, APR 26") instead of
+// the generic contract type. Same 60s cache as /live.
+router.get('/all', requireAuth, async (req, res) => {
+  const now = Date.now();
+  if (allCache.matches && (now - allCache.at) < CACHE_MS) {
+    return res.json({ matches: allCache.matches, cached: true });
+  }
+  try {
+    const all = await listLiveMatches({ seriesFilter: 'Indian Premier League' });
+    const slim = (all || []).map(m => ({
+      matchId: m.matchId,
+      teams: m.teams,
+      state: m.state,
+      startDate: m.startDate,
+    }));
+    allCache.matches = slim;
+    allCache.at = now;
+    res.json({ matches: slim, cached: false });
+  } catch (e) {
     res.json({ matches: [], error: e.message });
   }
 });
