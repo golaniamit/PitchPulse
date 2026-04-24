@@ -242,7 +242,18 @@ async function fetchScorecard(matchId, slug) {
       fours: b.fours,
       sixes: b.sixes,
       outDesc: b.outDesc || null,
-      isOut: !!(b.outDesc && b.outDesc !== 'not out' && b.outDesc !== ''),
+      // Cricbuzz uses outDesc as both an "in-progress" flag and a dismissal
+      // description. Anything that's clearly still-able-to-bat (missing,
+      // "not out", "batting", "retired hurt/not out") is NOT out — everything
+      // else ("c Sharma b Bumrah", "lbw b Boult", "run out", etc.) IS.
+      // Matching just `!== 'not out'` wrongly flags at-crease batters as
+      // dismissed and cascades into bad resolutions (e.g. player_runs firing
+      // early-NO on a batter who's still mid-innings).
+      isOut: (() => {
+        const od = String(b.outDesc || '').trim().toLowerCase();
+        if (!od) return false;
+        return !(od === 'not out' || od === 'batting' || od === 'retired hurt' || od === 'retired not out');
+      })(),
     })),
     bowlers: Object.values(inn.bowlTeamDetails?.bowlersData || {}).map(bo => ({
       id: bo.bowlId,
