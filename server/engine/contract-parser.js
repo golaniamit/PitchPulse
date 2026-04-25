@@ -12,7 +12,8 @@
 //             →  ContractBuilder-shaped object the admin reviews + edits
 
 const db = require('../db');
-const { getCachedMatchData } = require('./cricbuzz-resolver');
+const { getCachedMatchData, _setCachedMatchData } = require('./cricbuzz-resolver');
+const { listLiveMatches, fetchMatch } = require('./cricbuzz');
 
 const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'deepseek-r1:14b';
@@ -258,7 +259,78 @@ function extractJson(raw) {
   return JSON.parse(match[0]);
 }
 
+// Find a live IPL match without the admin having to pick one. Idempotent —
+// returns the already-cached match if it's fresh enough or if a simulation is
+// active. Otherwise hits Cricbuzz, picks the right one, and pins it as the
+// resolver's watched match (env var + cache) so auto-resolve will work for
+// any contract the parser tags afterwards.
+//
+// Disambiguation when multiple IPL matches are in progress: prefer the one
+// whose team short_codes appear in the sentence; fall back to the first
+// in-progress match (cricbuzz's listLiveMatches already sorts in-progress
+// before previews/upcoming/completed).
+async function ensureLiveMatch(sentence) {
+  const existing = getCachedMatchData();
+
+  // Honor an active dev simulation. SIM-* matches won't ever auto-resolve
+  // (they aren't real Cricbuzz IDs) but the admin is intentionally testing
+  // against them — don't override.
+  if (existing && typeof existing.matchId === 'string' && existing.matchId.startsWith('SIM-')) {
+    return existing;
+  }
+
+  // If the resolver is already watching a real cricbuzz match and the cache
+  // is consistent with the env, no work needed.
+  const envId = process.env.CRIC_MATCH_ID;
+  if (existing && envId && String(existing.matchId) === String(envId) && envId !== 'the_match_id_for_todays_game') {
+    return existing;
+  }
+
+  let live;
+  try {
+    live = await listLiveMatches({ seriesFilter: 'Indian Premier League' });
+  } catch {
+    return existing; // best effort — fall back to whatever was cached
+  }
+
+  const inProgress = (live || []).filter(m => /in progress|innings break|toss/i.test(m.state || ''));
+  if (inProgress.length === 0) {
+    // No live IPL match. If the env still carries a stale match id from a
+    // previous match (or a previous CricAPI integration), strip it now so
+    // the parser doesn't tag this contract to a match that won't resolve.
+    delete process.env.CRIC_MATCH_ID;
+    delete process.env.CRIC_MATCH_NAME;
+    delete process.env.CRIC_MATCH_TEAMS;
+    return null;
+  }
+
+  let pick = inProgress[0];
+  if (inProgress.length > 1) {
+    const upper = String(sentence).toUpperCase();
+    const matchByMention = inProgress.find(m =>
+      (m.teams || []).some(t => t.shortName && upper.includes(t.shortName.toUpperCase()))
+    );
+    if (matchByMention) pick = matchByMention;
+  }
+
+  process.env.CRIC_MATCH_ID    = String(pick.matchId);
+  process.env.CRIC_MATCH_NAME  = pick.matchDesc || pick.seriesName || String(pick.matchId);
+  process.env.CRIC_MATCH_TEAMS = (pick.teams || []).map(t => t.name).filter(Boolean).join('|');
+
+  try {
+    const full = await fetchMatch(pick.matchId);
+    _setCachedMatchData(full);
+    return full;
+  } catch {
+    return existing;
+  }
+}
+
 async function parseSentence(sentence) {
+  // Auto-pick the live match before constructing the prompt — this is the
+  // only step that talks to Cricbuzz, and it's the one that makes auto-
+  // resolve "just work" without the admin having to pre-select a match.
+  await ensureLiveMatch(sentence);
   const prompt = buildPrompt(sentence);
   const raw = await callOllama(prompt);
   const parsed = extractJson(raw);
