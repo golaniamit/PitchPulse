@@ -915,7 +915,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5 space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-gray-900 dark:text-gray-100">
-          {editing?.id ? `Edit Contract #${editing.id}` : (editing ? 'Duplicate as new contract' : 'Create Contract')}
+          {editing?.id ? `Edit Contract #${editing.id}` : (editing ? 'Review parsed contract' : 'Create Contract')}
         </h2>
         {editing && (
           <button onClick={onCancelEdit} className="text-xs text-gray-500 hover:text-red-600 border border-gray-200 dark:border-gray-600 px-3 py-1 rounded-lg">

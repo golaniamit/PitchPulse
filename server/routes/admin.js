@@ -4,6 +4,7 @@ const path = require('path');
 const { requireAdmin, requireAuth } = require('../middleware');
 const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval, getHealth } = require('../engine/cricbuzz-resolver');
 const { listLiveMatches } = require('../engine/cricbuzz');
+const { parseSentence, toContractDraft } = require('../engine/contract-parser');
 const { getIntSetting, setSetting } = require('../settings');
 const db = require('../db');
 const ws = require('../websocket');
@@ -183,6 +184,28 @@ router.get('/contract-suggestion', requireAdmin, async (req, res) => {
 // frontend translates `lastPollFinishedAt` age into green / amber / red.
 router.get('/resolver-health', requireAdmin, (req, res) => {
   res.json(getHealth());
+});
+
+// Quick-create parser. Admin types a free-text sentence; we send it to the
+// configured local LLM (Ollama) along with the live-match context + team
+// catalog, and get back a contract draft that pre-fills the builder. The
+// admin still reviews + clicks Make Live — we never auto-publish.
+router.post('/parse-contract', requireAdmin, async (req, res) => {
+  const { sentence } = req.body || {};
+  if (!sentence || typeof sentence !== 'string' || sentence.trim().length < 5) {
+    return res.status(400).json({ error: 'sentence required (at least 5 chars)' });
+  }
+  try {
+    const result = await parseSentence(sentence);
+    if (!result.ok) {
+      return res.status(422).json({ error: result.error, raw: result.raw });
+    }
+    const draft = toContractDraft(result.parsed);
+    res.json({ draft, parsed: result.parsed });
+  } catch (e) {
+    console.error('[parse-contract] failed:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Cricbuzz match list — powers the per-contract match picker in the contract

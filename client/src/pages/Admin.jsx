@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useGroup, withGroup } from '../context/GroupContext';
 import ContractBuilder from '../components/ContractBuilder';
+import QuickCreateBar from '../components/QuickCreateBar';
 
 
 // Two-step resolve modal
@@ -681,6 +682,16 @@ export default function Admin() {
             <PollIntervalControl />
             <UserStats />
           </div>
+        )}
+
+        {/* Quick create — sentence in, structured contract draft out via local LLM. */}
+        {isPublicAdmin && (
+          <QuickCreateBar
+            onParsed={(draft) => {
+              setEditingContract(draft);
+              builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          />
         )}
 
         {/* Contract builder — 3-slot tile-based form */}
