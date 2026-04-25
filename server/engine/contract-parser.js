@@ -25,7 +25,21 @@ const DIRECTIVES = [
   'Phrase the title as a yes/no question (e.g. "Will MI score 50+ in the powerplay?").',
   'For thresholds: "50+", "at least 50", "fifty or more" → operator ">=" with threshold 50. "more than 50" → operator ">" with threshold 50.',
   'When the sentence mentions a phase like "powerplay", "death overs", or "this over", set the matching phase + type — do not fall back to a custom_* type unless the question genuinely doesn\'t fit any structured type.',
+  'CRITICAL — "by" vs "in" distinguishes cumulative from single-over: "by the 11th", "by over 11", "by end of over 11", "after 11 overs" all mean CUMULATIVE TEAM TOTAL up to that point → use phase "by_over" with type "team_total" (or team_wickets_by_over for wickets). Versus "in over 11", "during over 11", "this over" which mean a SINGLE over → use phase "over" with type "runs_over" (or wicket_over).',
+  'Cross-check the threshold against the type: a single over rarely sees more than ~30 runs, so a threshold of 50, 100, 120, 150+ almost certainly means the question is cumulative (team_total / by_over), not runs_over.',
 ];
+
+// Concrete example pairs the model can pattern-match against. Helps the
+// 14B disambiguate edge cases that pure description didn't catch.
+const PHRASE_EXAMPLES = `
+"Will MI score 120 by the 11th?"        → type=team_total,    phase=by_over,   over=11, threshold=120
+"Will MI score 120 by over 11?"          → type=team_total,    phase=by_over,   over=11, threshold=120
+"Will MI score 12+ in over 11?"          → type=runs_over,     phase=over,      over_number=11, threshold=12
+"Will MI lose 2+ wickets in the powerplay?" → type=wickets_powerplay, phase=powerplay, threshold=2
+"Will CSK lose a wicket in over 5?"      → type=wicket_over,   phase=over,      over_number=5, threshold=1
+"Will MI lose 3+ wickets by over 10?"    → type=team_wickets_by_over, phase=by_over, over=10, threshold=3
+"Will Rohit score 30+ in this match?"    → type=player_runs,   phase=match,     threshold=30
+`.trim();
 
 const TYPE_CATALOG = `
 - runs_over (phase: over, subject: team) — Team scores N+ runs in a SPECIFIC over (over_number required)
@@ -86,6 +100,9 @@ ${getTeamCatalog()}
 
 DIRECTIVES (follow these exactly):
 ${DIRECTIVES.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+EXAMPLES (study the pattern → output mapping):
+${PHRASE_EXAMPLES}
 
 OUTPUT — return ONLY this JSON object, no commentary, no markdown fences:
 {
