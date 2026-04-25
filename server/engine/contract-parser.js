@@ -32,6 +32,7 @@ const DIRECTIVES = [
   'When the sentence mentions a specific team that ISN\'T currently batting (e.g. "DC to win toss" while MI is batting), do NOT default to the batting team — use the team named in the sentence. The batting-team default only applies when the sentence omits the subject entirely.',
   'CRITICAL — once you resolve a team (named or inferred from the batting context), you MUST set BOTH "team_short" at the top level AND "condition.team" to that short_code. Never leave team_short null when a team is identifiable. Use the resolved team\'s actual short_code or full name in the title — never write generic phrases like "the batting team" or "the team" in the title.',
   'PLAYER CONTRACTS — for player_runs, player_wickets, batsman_milestone, bowler_wickets_by_over: the named player can be on EITHER side of the live match (a bowler will usually be from the BOWLING side, a batsman from the BATTING side). Do NOT assume the player is on the batting team. If you are unsure which side the player belongs to, leave team_short null — the server resolves the player\'s actual team from its roster and will fill team_short in for you. Never invent a team that isn\'t playing the live match.',
+  'SEASON CONTRACTS — sentences about the whole tournament ("win the IPL", "lift the trophy", "finish top 4", "Orange Cap", "season runs", "title winner") use phase="season" with one of: season_team_wins_title, season_team_finish, season_player_runs, season_player_wickets. Season contracts always set resolve_mode="manual" (the resolver only polls one match at a time, so season totals can\'t auto-settle). Do NOT set match_id for season contracts — leave it null.',
 ];
 
 // Concrete JSON examples — fully resolved with the actual batting-team
@@ -89,6 +90,10 @@ const TYPE_CATALOG = `
 - innings_score (phase: match, subject: team) — Team total at end of innings
 - player_runs (phase: match, subject: player) — Batsman scores N+ runs across the whole match
 - player_wickets (phase: match, subject: player) — Bowler takes N+ wickets across the whole match
+- season_team_wins_title (phase: season, subject: team) — Team lifts the trophy this IPL season
+- season_team_finish (phase: season, subject: team) — Team finishes in top N of the league table (use threshold_position for N, e.g. 4 for "top 4")
+- season_player_runs (phase: season, subject: player) — Batsman scores N+ runs across the whole season
+- season_player_wickets (phase: season, subject: player) — Bowler takes N+ wickets across the whole season
 - manual (phase: match, subject: match_generic) — Free-text question; resolve_mode must be "manual"
 `.trim();
 
@@ -146,8 +151,20 @@ function getTeamCatalog() {
   return teams.map(t => `${t.short_code} — ${t.name}`).join('\n');
 }
 
+// Coarse keyword sniff for season-long intent. Used in two places:
+// (1) ensureLiveMatch to skip auto-picking a match for season contracts.
+// (2) buildPrompt to suppress live-match context entirely so the LLM
+// emits phase="season" and match_id=null even if the env still carries a
+// previous match's id.
+function looksLikeSeasonContract(sentence) {
+  return /\b(season|title|trophy|champion|championship|league\s+(finish|winner)|cup|top\s+\d|wins?\s+the\s+ipl|lifts?\s+the\s+(cup|trophy))\b/i
+    .test(String(sentence || ''));
+}
+
 function buildPrompt(sentence) {
-  const live = getLiveMatchContext();
+  // For season-intent sentences, hide the live-match block entirely so the
+  // LLM doesn't latch onto a single match by accident.
+  const live = looksLikeSeasonContract(sentence) ? null : getLiveMatchContext();
   return `You parse cricket prediction sentences into structured JSON contract drafts.
 
 CONTRACT TYPES (pick exactly one):
@@ -286,6 +303,12 @@ async function ensureLiveMatch(sentence) {
     return existing;
   }
 
+  // Season-long contracts (title winner, top-N league finish, season runs/
+  // wickets totals) span the whole tournament, not any one match. Don't pin
+  // a match — leave match_id null so ContractBuilder picks phase=season and
+  // skips match tagging entirely.
+  if (looksLikeSeasonContract(sentence)) return null;
+
   let live;
   try {
     live = await listLiveMatches({ seriesFilter: 'Indian Premier League' });
@@ -293,21 +316,26 @@ async function ensureLiveMatch(sentence) {
     return existing; // best effort — fall back to whatever was cached
   }
 
+  // Prefer an in-progress match. If there isn't one, fall back to the next
+  // upcoming match — the resolver will start polling its id now and when
+  // the toss/first ball happens it'll have data ready.
   const inProgress = (live || []).filter(m => /in progress|innings break|toss/i.test(m.state || ''));
-  if (inProgress.length === 0) {
-    // No live IPL match. If the env still carries a stale match id from a
-    // previous match (or a previous CricAPI integration), strip it now so
-    // the parser doesn't tag this contract to a match that won't resolve.
+  const upcoming   = (live || []).filter(m => /preview|upcoming/i.test(m.state || ''));
+  const candidates = inProgress.length > 0 ? inProgress : upcoming;
+
+  if (candidates.length === 0) {
+    // No live + no upcoming IPL match. Strip any stale env so the parser
+    // doesn't tag the new contract to a match that won't resolve.
     delete process.env.CRIC_MATCH_ID;
     delete process.env.CRIC_MATCH_NAME;
     delete process.env.CRIC_MATCH_TEAMS;
     return null;
   }
 
-  let pick = inProgress[0];
-  if (inProgress.length > 1) {
+  let pick = candidates[0];
+  if (candidates.length > 1) {
     const upper = String(sentence).toUpperCase();
-    const matchByMention = inProgress.find(m =>
+    const matchByMention = candidates.find(m =>
       (m.teams || []).some(t => t.shortName && upper.includes(t.shortName.toUpperCase()))
     );
     if (matchByMention) pick = matchByMention;
