@@ -115,13 +115,16 @@ export default function Navbar() {
 
   return (
     <nav className="bg-navy-800 shadow-lg sticky top-0 z-50">
-      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
 
         {/* Left: logo + group switcher + nav links */}
-        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            {/* On mobile the wordmark eats too much of the row — icon-only. */}
-            <PitchPulseLogo size={32} showWordmark={false} dark={true} />
+            {/* On mobile the wordmark eats too much of the row — icon-only.
+                Mobile uses 28px, desktop 32px — keeps the row visually
+                centered without stealing horizontal space from the chip. */}
+            <span className="sm:hidden"><PitchPulseLogo size={28} showWordmark={false} dark={true} /></span>
+            <span className="hidden sm:block"><PitchPulseLogo size={32} showWordmark={false} dark={true} /></span>
             <span className="hidden sm:inline text-[10px] font-bold tracking-widest uppercase bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full leading-none select-none">
               beta
             </span>
@@ -145,8 +148,10 @@ export default function Navbar() {
 
         {/* Right: connection dot + balance + profile.
             Dark-mode toggle lives inside the profile dropdown — it was eating
-            horizontal room in the nav that the new group-context tabs need. */}
-        <div className="flex items-center gap-3">
+            horizontal room in the nav that the new group-context tabs need.
+            Tighter gap on mobile keeps the row from cramming against the
+            group switcher when names are long. */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
 
           {/* Connection dot — desktop only. On mobile it was sitting between
               the group switcher and the coin chip with nothing to anchor it,

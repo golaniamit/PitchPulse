@@ -788,7 +788,11 @@ export default function Admin() {
                     ⋯ {localizeReason(c.last_eval_reason)}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Meta + actions row.
+                    Mobile: meta sits on its own line above a clean button row
+                    so we never get [meta][btn][btn][btn]\n[btn][btn] ladder
+                    layouts. Desktop: meta left, buttons right, single row.  */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
                   <div className="text-xs text-gray-400 flex flex-wrap gap-x-2 gap-y-0.5">
                     <span>{c.type} · {c.current_price}¢</span>
                     {(c.trader_count > 0 || c.volume > 0) && (
@@ -797,7 +801,11 @@ export default function Admin() {
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  {/* On mobile each button gets equal flex so the row reads
+                      as a deliberate grid instead of a wrapped jumble. The
+                      icon-only buttons (✕, Duplicate) are pinned auto-width
+                      so they don't blow up to match the text buttons. */}
+                  <div className="flex flex-wrap gap-1.5 sm:flex-nowrap sm:justify-end">
                     {c.status === 'resolved' && c.resolved_at && (() => {
                       const ageMs = Date.now() - new Date(c.resolved_at + 'Z').getTime();
                       return ageMs < 60_000
@@ -806,32 +814,32 @@ export default function Admin() {
                     })()}
                     {c.status === 'draft' && (
                       <>
-                        <button onClick={() => editContract(c)} className="text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 font-semibold">Edit</button>
-                        <button onClick={() => setContractStatus(c.id, 'active')} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">Make Live</button>
-                        <button onClick={() => setContractStatus(c.id, 'cancelled')} className="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+                        <button onClick={() => editContract(c)} className="flex-1 sm:flex-none text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 font-semibold">Edit</button>
+                        <button onClick={() => setContractStatus(c.id, 'active')} className="flex-1 sm:flex-none text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">Make Live</button>
+                        <button onClick={() => setContractStatus(c.id, 'cancelled')} className="flex-1 sm:flex-none text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
                       </>
                     )}
                     {c.status === 'active' && (
-                      <button onClick={() => setContractStatus(c.id, 'draft')} className="text-xs bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg">Deactivate</button>
+                      <button onClick={() => setContractStatus(c.id, 'draft')} className="flex-1 sm:flex-none text-xs bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg">Deactivate</button>
                     )}
                     {c.status === 'active' && (
                       <button
                         onClick={() => setResolvingContract(c)}
-                        className="text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 font-semibold"
+                        className="flex-1 sm:flex-none text-xs bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700 font-semibold"
                       >
                         {c.resolve_mode === 'auto' ? 'Force resolve' : 'Resolve'}
                       </button>
                     )}
-                    {/* Duplicate — available for every contract */}
+                    {/* Duplicate — icon button, not full-width on mobile */}
                     <button
                       onClick={() => duplicateContract(c)}
                       title="Duplicate as a new draft"
-                      className="text-xs text-gray-500 hover:text-navy-800 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                      className="text-xs text-gray-500 hover:text-navy-800 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex-shrink-0"
                     >
-                      ⎘ Duplicate
+                      ⎘ <span className="hidden sm:inline">Duplicate</span>
                     </button>
                     {c.status === 'active' && (
-                      <button onClick={() => setContractStatus(c.id, 'cancelled')} className="text-xs text-gray-400 hover:text-red-600 px-2 py-1.5">✕</button>
+                      <button onClick={() => setContractStatus(c.id, 'cancelled')} className="text-xs text-gray-400 hover:text-red-600 px-2 py-1.5 flex-shrink-0" title="Cancel contract">✕</button>
                     )}
                   </div>
                 </div>

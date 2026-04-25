@@ -44,30 +44,29 @@ export default function GroupSwitcher({ onRequestCreate, onRequestJoin }) {
   const [bg, fg] = currentGroup ? groupColour(currentGroup.name) : ['', ''];
 
   return (
-    // Stable width across contexts so the rest of the nav doesn't shift when
-    // the user toggles between Public markets and a group. Desktop gets a
-    // fixed 12rem; mobile keeps the min-w-0 behaviour because horizontal
-    // space is scarce there.
-    <div className="relative shrink-0 w-auto sm:w-[12rem]" ref={rootRef}>
+    // Mobile: chip shrinks to fit the row alongside the right-side cluster
+    // (install button + balance + avatar). It hits min-w-0 so the inner text
+    // can truncate before we ever overlap the coins. Desktop pins it to 12rem
+    // so toggling between Public markets and a group doesn't reflow the nav.
+    <div className="relative min-w-0 flex-1 sm:flex-none sm:w-[12rem]" ref={rootRef}>
       <button
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-1 text-xs sm:text-sm min-w-0 ${
+        className={`w-full flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-2.5 py-1 text-xs sm:text-sm min-w-0 ${
           open ? 'bg-white/20 ring-1 ring-white/40' : 'bg-white/10 hover:bg-white/15'
         }`}
       >
-        {/* Keep the icon slot a fixed size whether it renders the home emoji
-            or a group's 2-letter badge — mixing the two without a fixed box
-            caused a 1-2px horizontal jitter on every switch. */}
-        <span className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center flex-shrink-0">
+        {/* Fixed icon box to avoid 1-2px jitter when toggling between the
+            home emoji and a group's 2-letter badge. */}
+        <span className="w-4 h-4 sm:w-6 sm:h-6 flex items-center justify-center flex-shrink-0">
           {currentGroup ? (
-            <span className={`w-full h-full rounded flex items-center justify-center font-bold text-[10px] sm:text-xs ${bg} ${fg}`}>
+            <span className={`w-full h-full rounded flex items-center justify-center font-bold text-[9px] sm:text-xs ${bg} ${fg}`}>
               {groupInitials(currentGroup.name)}
             </span>
           ) : (
-            <span className="text-sm leading-none">🏠</span>
+            <span className="text-xs sm:text-sm leading-none">🏠</span>
           )}
         </span>
-        <span className="font-semibold text-white truncate flex-1 text-left max-w-[8rem] sm:max-w-none">
+        <span className="font-semibold text-white truncate flex-1 text-left">
           {currentGroup ? currentGroup.name : 'Public markets'}
         </span>
         <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"

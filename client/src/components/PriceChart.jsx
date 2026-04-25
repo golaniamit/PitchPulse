@@ -67,9 +67,13 @@ export default function PriceChart({ history, contractId, onPriceUpdate }) {
       priceLineVisible: true,
     });
 
-    // Price scale 0-100
-    chart.priceScale('right').applyOptions({ autoScale: false });
-    series.applyOptions({ autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }) });
+    // Price scale locked to 0-100 — probabilities can't go outside that range,
+    // so we override the autoscale calculation with a fixed range every frame.
+    // (Setting autoScale:false instead would freeze the range at construction
+    // time — before any data lands — and ignore the provider entirely.)
+    series.applyOptions({
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+    });
 
     chartRef.current = chart;
     seriesRef.current = series;
