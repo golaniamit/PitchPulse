@@ -15,8 +15,13 @@ const db = require('../db');
 const { getCachedMatchData, _setCachedMatchData } = require('./cricbuzz-resolver');
 const { listLiveMatches, fetchMatch } = require('./cricbuzz');
 
-const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'deepseek-r1:14b';
+const OLLAMA_URL    = process.env.OLLAMA_URL    || 'http://localhost:11434';
+const OLLAMA_MODEL  = process.env.OLLAMA_MODEL  || 'deepseek-r1:14b';
+// When the parser talks to a gatekeeper-fronted Ollama (prod path through the
+// Cloudflare tunnel), it stamps every request with this shared secret so
+// random callers can't use the tunnel URL. Local dev hits Ollama directly
+// without a gatekeeper, so leaving this unset there is fine.
+const PARSER_SECRET = process.env.PARSER_SECRET || null;
 
 // Edit this list to teach the parser new conventions. Plain English — these
 // lines become part of the system prompt verbatim, so phrasing matters.
@@ -231,9 +236,11 @@ async function callOllama(prompt) {
     // Instead we ask for raw output, strip thinking, and extract the {...}
     // block ourselves. Ollama already separates `thinking` from `response`
     // on R1-family models, so the response field is usually clean JSON.
+    const headers = { 'Content-Type': 'application/json' };
+    if (PARSER_SECRET) headers['x-parser-secret'] = PARSER_SECRET;
     r = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: OLLAMA_MODEL,
         prompt,
