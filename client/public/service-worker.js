@@ -1,19 +1,5 @@
-// PitchPulse service worker.
-// Two responsibilities:
-//   1. PWA installability — install/activate/fetch handlers let Chrome offer "Add to Home Screen".
-//   2. Push notifications — receive webpush payloads and show OS-level notifications.
-
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
-
-// Network-only pass-through. We don't cache anything — a live trading app wants fresh data.
-// The presence of this handler is what qualifies the app as installable in Chrome.
-self.addEventListener('fetch', () => {});
+// PitchPulse push notification service worker.
+// Receives payloads from the server via webpush and shows OS-level notifications.
 
 self.addEventListener('push', (event) => {
   let data = { title: 'PitchPulse', body: '', url: '/' };
