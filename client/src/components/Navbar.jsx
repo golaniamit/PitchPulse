@@ -9,6 +9,7 @@ import NotificationToggle from './NotificationToggle';
 import GroupSwitcher from './GroupSwitcher';
 import CreateGroupModal from './CreateGroupModal';
 import JoinGroupModal from './JoinGroupModal';
+import InstallButton from './InstallButton';
 
 // Live-score ticker source. In public context it hits the global admin
 // live-score endpoint; in a group it queries the group's own endpoint which
@@ -156,6 +157,11 @@ export default function Navbar() {
             className={`hidden sm:block w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}
             title={connected ? 'Live' : 'Reconnecting'}
           />
+
+          {/* PWA install — only renders when the browser has surfaced an install
+              prompt (Android/desktop Chrome) or detected iOS Safari. Hides itself
+              once the app is installed. */}
+          <InstallButton />
 
           {/* Coin balance — reflects the currently-selected context. Inside a
               group it shows the per-group wallet; in public it shows users.balance. */}
