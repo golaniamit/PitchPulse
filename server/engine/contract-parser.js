@@ -272,15 +272,86 @@ function toContractDraft(parsed) {
   const teams   = db.prepare('SELECT id, short_code, name FROM teams').all();
   const players = db.prepare('SELECT id, name FROM players').all();
 
+  // Standard Levenshtein. Returns edit distance between two lowercase strings.
+  function lev(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const dp = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= a.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        const cost = b[i - 1] === a[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      }
+    }
+    return dp[b.length][a.length];
+  }
+
+  // Per-token threshold: short tokens (initials, "MS") need exact match;
+  // longer tokens get more slack.
+  function tokenThreshold(t) {
+    if (t.length <= 3) return 0;
+    if (t.length <= 5) return 1;
+    return 2;
+  }
+
   const findTeam = (code) => {
     if (!code) return null;
-    const c = String(code).toUpperCase();
-    return teams.find(t => t.short_code.toUpperCase() === c) || null;
+    const q = String(code).trim();
+    const qU = q.toUpperCase();
+    // Exact short_code (most common).
+    let m = teams.find(t => t.short_code.toUpperCase() === qU);
+    if (m) return m;
+    // Substring on full name.
+    const qL = q.toLowerCase();
+    m = teams.find(t => t.name.toLowerCase().includes(qL));
+    if (m) return m;
+    // Fuzzy on short_code or first token of name (catches "MumbaiIndians",
+    // "Mumbi", typos in the team's own short_code).
+    let best = null, bestD = Infinity;
+    for (const t of teams) {
+      const candidates = [t.short_code.toLowerCase(), ...t.name.toLowerCase().split(/\s+/)];
+      for (const c of candidates) {
+        const d = lev(qL, c);
+        const thresh = tokenThreshold(c);
+        if (d <= thresh && d < bestD) { bestD = d; best = t; }
+      }
+    }
+    return best;
   };
+
   const findPlayer = (name) => {
     if (!name) return null;
-    const n = String(name).toLowerCase();
-    return players.find(p => p.name.toLowerCase().includes(n)) || null;
+    const q = String(name).toLowerCase().trim();
+    if (!q) return null;
+    // 1. Exact substring (case-insensitive) — fast path for the common case.
+    let m = players.find(p => p.name.toLowerCase().includes(q));
+    if (m) return m;
+    // 2. Tokenised fuzzy. Each query token must find a player-name token
+    // within its length-scaled Levenshtein threshold; pick the player with
+    // the lowest total distance across matched tokens.
+    const qTokens = q.split(/\s+/).filter(t => t.length > 1);
+    if (qTokens.length === 0) return null;
+    let best = null, bestScore = Infinity;
+    for (const p of players) {
+      const pTokens = p.name.toLowerCase().split(/\s+/);
+      let total = 0, allMatched = true;
+      for (const qt of qTokens) {
+        let bestTokenD = Infinity;
+        for (const pt of pTokens) {
+          const d = lev(qt, pt);
+          if (d < bestTokenD) bestTokenD = d;
+        }
+        if (bestTokenD > tokenThreshold(qt)) { allMatched = false; break; }
+        total += bestTokenD;
+      }
+      if (allMatched && total < bestScore) {
+        bestScore = total;
+        best = p;
+      }
+    }
+    return best;
   };
 
   const team     = findTeam(parsed.team_short);
