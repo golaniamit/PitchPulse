@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { requireAdmin, requireAuth } = require('../middleware');
-const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval, getHealth } = require('../engine/cricbuzz-resolver');
+const { getCachedMatchData, getCachedFetchedAt, setPollInterval, getPollInterval, getHealth, _setCachedMatchData, _clearCachedMatchData } = require('../engine/cricbuzz-resolver');
 const { listLiveMatches } = require('../engine/cricbuzz');
 const { parseSentence, toContractDraft } = require('../engine/contract-parser');
 const { getIntSetting, setSetting } = require('../settings');
@@ -184,6 +184,89 @@ router.get('/contract-suggestion', requireAdmin, async (req, res) => {
 // frontend translates `lastPollFinishedAt` age into green / amber / red.
 router.get('/resolver-health', requireAdmin, (req, res) => {
   res.json(getHealth());
+});
+
+// Dev-only — inject a fake live match into the resolver cache so the contract
+// parser (and any other consumer of getCachedMatchData) sees a "live" match
+// without a real Cricbuzz poll. Useful to exercise team/player/context
+// inference against a known scenario. Refused in production.
+router.post('/simulate-match', requireAdmin, (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Simulation only available in dev mode' });
+  }
+  const {
+    battingShort, bowlingShort,
+    score = 0, wickets = 0, overs = 0,
+    format = 'T20', status,
+  } = req.body || {};
+  if (!battingShort || !bowlingShort) {
+    return res.status(400).json({ error: 'battingShort and bowlingShort required' });
+  }
+  const all = db.prepare('SELECT id, name, short_code FROM teams').all();
+  const batting = all.find(t => t.short_code.toLowerCase() === String(battingShort).toLowerCase());
+  const bowling = all.find(t => t.short_code.toLowerCase() === String(bowlingShort).toLowerCase());
+  if (!batting || !bowling) {
+    return res.status(400).json({ error: `Unknown team(s). Found: ${[batting && batting.short_code, bowling && bowling.short_code].filter(Boolean).join(', ') || 'none'}` });
+  }
+
+  // Internal IDs scoped to this fake match — they only need to be consistent
+  // with the current.batTeamId reference, not with anything in the DB.
+  const matchId = `SIM-${batting.short_code}-${bowling.short_code}-${Date.now().toString(36)}`;
+  process.env.CRIC_MATCH_ID    = matchId;
+  process.env.CRIC_MATCH_NAME  = `${batting.short_code} vs ${bowling.short_code}, simulated match`;
+  process.env.CRIC_MATCH_TEAMS = `${batting.name}|${bowling.name}`;
+
+  const match = {
+    matchId,
+    slug: 'simulated',
+    state: 'In Progress',
+    status: status || `${batting.short_code} ${score}/${wickets} (${overs} ovs)`,
+    format,
+    teams: [
+      { id: 1, name: batting.name, shortName: batting.short_code },
+      { id: 2, name: bowling.name, shortName: bowling.short_code },
+    ],
+    innings: [{
+      inningsId: 1,
+      batTeamId: 1,
+      batTeamName: batting.name,
+      score,
+      wickets,
+      overs,
+      ballNbr: Math.round(overs * 6),
+      isDeclared: 0,
+      isFollowOn: 0,
+    }],
+    current: {
+      inningsId: 1,
+      batTeamId: 1,
+      batTeamScore: score,
+      batTeamWkts: wickets,
+      batsmanStriker: null,
+      batsmanNonStriker: null,
+      bowlerStriker: null,
+      currentRunRate: overs > 0 ? +(score / overs).toFixed(2) : 0,
+      requiredRunRate: null,
+      lastWicket: null,
+      recentOvsStats: null,
+    },
+    toss: null,
+    result: null,
+    fetchedAt: Date.now(),
+  };
+
+  _setCachedMatchData(match);
+  res.json({ ok: true, simulated: true, match });
+});
+
+// Pair endpoint to wipe the simulation when the admin is done.
+router.post('/clear-simulation', requireAdmin, (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Simulation only available in dev mode' });
+  }
+  _clearCachedMatchData();
+  // Keep the env vars alone — admin may have set a real CRIC_MATCH_ID.
+  res.json({ ok: true });
 });
 
 // Quick-create parser. Admin types a free-text sentence; we send it to the

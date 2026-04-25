@@ -113,6 +113,18 @@ loadLedgerFromDb();
 function getCachedMatchData() { return cache.matchData; }
 function getCachedFetchedAt() { return cache.fetchedAt; }
 
+// Dev-only injection point — lets a /simulate-match admin endpoint stuff a
+// fake match into the cache without needing a live Cricbuzz poll. Used to
+// exercise the contract parser's live-match context against known teams.
+function _setCachedMatchData(match) {
+  cache.matchData = match;
+  cache.fetchedAt = Date.now();
+}
+function _clearCachedMatchData() {
+  cache.matchData = null;
+  cache.fetchedAt = null;
+}
+
 // ── Condition evaluators ──────────────────────────────────────────────────────
 // Return true (YES), false (NO), or null (not yet determinable).
 
@@ -917,7 +929,9 @@ module.exports = {
   setPollInterval,
   getPollInterval,
   getHealth,
-  // Exposed for tests
+  // Exposed for tests + dev simulation endpoints
   _pollAndResolve: pollAndResolve,
   _evaluate: evaluate,
+  _setCachedMatchData,
+  _clearCachedMatchData,
 };
