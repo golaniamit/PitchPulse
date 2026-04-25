@@ -78,6 +78,7 @@ export default function Home({ openTour, tourActive }) {
   const isAdmin = currentGroup ? currentGroup.role === 'admin' : !!user?.is_admin;
   const [contracts, setContracts] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
+  const [allMatches, setAllMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('all');
   const [sort, setSort] = useState('newest');
@@ -99,6 +100,17 @@ export default function Home({ openTour, tourActive }) {
       setLiveMatches(data.matches || []);
     } catch { /* ignore */ }
   }
+  async function loadAllMatches() {
+    // Powers the per-card match eyebrow ("GT v MI · SAT, APR 26"). 60s server
+    // cache so this can be called freely; we still only call it on mount and
+    // on a slow interval to keep the dot accurate as matches start/end.
+    try {
+      const r = await fetch('/api/matches/all', { credentials: 'include' });
+      if (!r.ok) return;
+      const data = await r.json();
+      setAllMatches(data.matches || []);
+    } catch { /* ignore — cards just fall back to type label */ }
+  }
 
   function dedupe(list) { return [...new Map(list.map(c => [c.id, c])).values()]; }
   function upsert(cs, contract) { return [contract, ...cs.filter(c => c.id !== contract.id)]; }
@@ -110,9 +122,18 @@ export default function Home({ openTour, tourActive }) {
     setLoading(true);
     load();
     loadLive();
-    const id = setInterval(loadLive, 60_000); // refresh live-match state once a minute
+    loadAllMatches();
+    const id = setInterval(() => { loadLive(); loadAllMatches(); }, 60_000);
     return () => clearInterval(id);
   }, [currentGroupId]);
+
+  // Map of matchId → match info for the contract-card eyebrow. Built once
+  // here so each card doesn't re-derive it on every render.
+  const matchById = useMemo(() => {
+    const m = new Map();
+    for (const x of allMatches) m.set(String(x.matchId), x);
+    return m;
+  }, [allMatches]);
 
   const isVisibleStatus = (s) => s === 'active' || s === 'resolved';
 
@@ -399,6 +420,7 @@ export default function Home({ openTour, tourActive }) {
                 <ContractCard
                   key={c.id}
                   contract={c}
+                  matchInfo={c.match_id ? matchById.get(String(c.match_id)) : null}
                   tourTarget={tourActive ? true : (i === 0 && tab === 'all')}
                 />
               ))}
@@ -420,6 +442,7 @@ export default function Home({ openTour, tourActive }) {
             <ContractCard
               key={c.id}
               contract={c}
+              matchInfo={c.match_id ? matchById.get(String(c.match_id)) : null}
               tourTarget={tourActive ? true : (i === 0 && tab === 'all')}
             />
           ))}

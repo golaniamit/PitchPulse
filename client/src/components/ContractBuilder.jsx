@@ -44,10 +44,12 @@ const TYPES_BY_PHASE = {
     { id: 'custom_death',     label: 'Custom (death overs)',                 desc: 'Anything else in death overs' },
   ],
   match: [
-    { id: 'match_winner',  label: 'Match winner',   desc: 'Which team wins the match' },
-    { id: 'innings_score', label: 'Innings score',  desc: 'Team total at end of innings' },
-    { id: 'toss_winner',   label: 'Toss winner',    desc: 'Which team wins the toss' },
-    { id: 'custom_match',  label: 'Custom (match)', desc: 'Flexible — any subject + badge' },
+    { id: 'match_winner',   label: 'Match winner',   desc: 'Which team wins the match' },
+    { id: 'innings_score',  label: 'Innings score',  desc: 'Team total at end of innings' },
+    { id: 'toss_winner',    label: 'Toss winner',    desc: 'Which team wins the toss' },
+    { id: 'player_runs',    label: 'Player runs',    desc: 'Batsman scores N+ runs across the match' },
+    { id: 'player_wickets', label: 'Player wickets', desc: 'Bowler takes N+ wickets across the match' },
+    { id: 'custom_match',   label: 'Custom (match)', desc: 'Flexible — any subject + badge' },
   ],
   season: [
     { id: 'season_team_finish',     label: 'Team league finish',  desc: 'Team finishes in top N of the league table' },
@@ -69,6 +71,8 @@ const SUBJECT_KIND_BY_TYPE = {
   match_winner: 'matchup',
   innings_score: 'team',
   toss_winner: 'team',
+  player_runs: 'player',
+  player_wickets: 'player',
   custom_match: 'team',
   // season
   season_team_finish: 'team',
@@ -99,6 +103,8 @@ const TYPES_WITH_INNINGS = new Set(['innings_score']);   // custom_match has its
 const TYPES_WITH_SEASON_POSITION   = new Set(['season_team_finish']);   // "Top N finish"
 const TYPES_WITH_SEASON_RUN_TOTAL  = new Set(['season_player_runs']);   // "Total runs across season"
 const TYPES_WITH_SEASON_WKT_TOTAL  = new Set(['season_player_wickets']); // "Total wickets across season"
+const TYPES_WITH_MATCH_RUN_TOTAL   = new Set(['player_runs']);          // "Runs in this match"
+const TYPES_WITH_MATCH_WKT_TOTAL   = new Set(['player_wickets']);       // "Wickets in this match"
 
 // ── Builders (title + condition_json) ───────────────────────────────
 
@@ -153,6 +159,8 @@ function buildTitle(type, fields, teams, players) {
     case 'match_winner':  return `Will ${t(fields.team_id)} beat ${t(fields.opponent_team_id)} today?`;
     case 'innings_score': return `Will ${t(fields.team_id)} score ${opPhrase(fields.operator)} ${fields.threshold || 'N'} runs?`;
     case 'toss_winner':   return `Will ${t(fields.team_id)} win the toss today?`;
+    case 'player_runs':    return `Will ${p(fields.player_id)} score ${fields.threshold || 'N'}+ runs in the match?`;
+    case 'player_wickets': return `Will ${p(fields.player_id)} take ${fields.threshold || 'N'}+ wickets in the match?`;
     case 'custom_match':  return fields.custom_title || '...';
 
     case 'season_team_finish':     return `Will ${t(fields.team_id)} finish in the top ${fields.threshold_position || 'N'} this season?`;
@@ -195,6 +203,8 @@ function buildConditionJson(type, fields, teams, players) {
     case 'match_winner':  return { type, team: tS(fields.team_id), opponent: tS(fields.opponent_team_id) };
     case 'innings_score': return { type, team: tS(fields.team_id), innings: +fields.innings_number || 1, operator: fields.operator || '>=', threshold: +fields.threshold || null };
     case 'toss_winner':   return { type, team: tS(fields.team_id) };
+    case 'player_runs':    return { type, player: pN(fields.player_id), operator: '>=', threshold: +fields.threshold || null };
+    case 'player_wickets': return { type, player: pN(fields.player_id), operator: '>=', threshold: +fields.threshold || null };
     case 'custom_match':  return { type, team: tS(fields.team_id), player: pN(fields.player_id), innings: fields.innings_number || null };
 
     case 'season_team_finish':     return { type, team: tS(fields.team_id), season: fields.season_code || DEFAULT_SEASON_CODE, threshold_position: +fields.threshold_position || null };
@@ -235,6 +245,8 @@ function requiredFields(type) {
     case 'match_winner':   return ['team_id', 'opponent_team_id'];
     case 'innings_score':  return ['team_id', 'innings_number', 'operator', 'threshold'];
     case 'toss_winner':    return ['team_id'];
+    case 'player_runs':    return ['player_id', 'threshold'];
+    case 'player_wickets': return ['player_id', 'threshold'];
     case 'custom_match':   return ['custom_title'];
 
     case 'season_team_finish':     return ['team_id', 'threshold_position'];
@@ -636,10 +648,46 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [matchId, setMatchId] = useState(null); // Cricbuzz numeric id; null = inherit global match
   const [suggestion, setSuggestion] = useState(null); // { threshold, note } from /api/admin/contract-suggestion
+  // Cache the cricbuzz match list once so we can look up the two teams playing
+  // in whichever match the admin has tagged. When matchId is set, the team
+  // pickers below filter to just those two teams — no point letting the admin
+  // pick a team that isn't even playing in this match.
+  const [cricbuzzMatches, setCricbuzzMatches] = useState([]);
 
   useEffect(() => {
     fetch('/api/teams', { credentials: 'include' }).then(r => r.json()).then(d => setTeams(d.teams || []));
+    fetch('/api/admin/cricbuzz-matches?series=Indian%20Premier%20League', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { matches: [] })
+      .then(d => setCricbuzzMatches(d.matches || []))
+      .catch(() => { /* match-team filtering just degrades to "show all" */ });
   }, []);
+
+  // Derive the two teams playing in the selected match, then narrow the local
+  // teams roster to only those two. Falls back to ALL teams when no match is
+  // tagged (manual / custom contracts can be about any team).
+  const selectedCricbuzzMatch = matchId
+    ? cricbuzzMatches.find(m => String(m.matchId) === String(matchId))
+    : null;
+  const availableTeams = (selectedCricbuzzMatch && selectedCricbuzzMatch.teams?.length === 2)
+    ? teams.filter(t => selectedCricbuzzMatch.teams.some(mt => mt.shortName === t.short_code))
+    : teams;
+
+  // If the admin had a team selected and then switches to a match where that
+  // team isn't playing, clear the field so we don't carry a stale invalid pick.
+  useEffect(() => {
+    if (!selectedCricbuzzMatch) return;
+    const validShorts = selectedCricbuzzMatch.teams.map(mt => mt.shortName);
+    if (fields.team_id) {
+      const picked = teams.find(t => t.id === fields.team_id);
+      if (picked && !validShorts.includes(picked.short_code)) setField('team_id', null);
+    }
+    if (fields.opponent_team_id) {
+      const picked = teams.find(t => t.id === fields.opponent_team_id);
+      if (picked && !validShorts.includes(picked.short_code)) setField('opponent_team_id', null);
+    }
+    // setField is stable from useFields; teams + fields are intentional deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCricbuzzMatch, teams]);
 
   // Ask the backend for a projected threshold + one-line note whenever the
   // inputs that influence it change. Debounced to avoid thrashing while typing.
@@ -831,7 +879,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
         subject_kind,
         team_id: fields.team_id || null,
         opponent_team_id: fields.opponent_team_id || null,
-        player_id: (subject_kind === 'player' || type === 'batsman_milestone' || type === 'bowler_wickets_by_over' || type === 'season_player_runs' || type === 'season_player_wickets') ? (fields.player_id || null) : null,
+        player_id: (subject_kind === 'player' || type === 'batsman_milestone' || type === 'bowler_wickets_by_over' || type === 'season_player_runs' || type === 'season_player_wickets' || type === 'player_runs' || type === 'player_wickets') ? (fields.player_id || null) : null,
         over_number,
         innings_number,
         season_code: phase === 'season' ? (fields.season_code || DEFAULT_SEASON_CODE) : null,
@@ -1000,7 +1048,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
                 (isCustomMatch && fields.match_subject === 'team')) && (
                 <div>
                   <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Team {isCustomType && '(optional)'}</p>
-                  <TeamGrid teams={teams} selectedId={fields.team_id} onSelect={id => setField('team_id', id)} />
+                  <TeamGrid teams={availableTeams} selectedId={fields.team_id} onSelect={id => setField('team_id', id)} />
                 </div>
               )}
 
@@ -1009,11 +1057,11 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
                 <div className="space-y-3">
                   <div>
                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">YES team (the one that wins)</p>
-                    <TeamGrid teams={teams} selectedId={fields.team_id} onSelect={id => setField('team_id', id)} />
+                    <TeamGrid teams={availableTeams} selectedId={fields.team_id} onSelect={id => setField('team_id', id)} />
                   </div>
                   <div>
                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Opponent</p>
-                    <TeamGrid teams={teams} selectedId={fields.opponent_team_id} onSelect={id => setField('opponent_team_id', id)} compact exclude={fields.team_id} />
+                    <TeamGrid teams={availableTeams} selectedId={fields.opponent_team_id} onSelect={id => setField('opponent_team_id', id)} compact exclude={fields.team_id} />
                   </div>
                 </div>
               )}
@@ -1024,7 +1072,7 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
                 <div className="space-y-3">
                   <div>
                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Team (filters players)</p>
-                    <TeamGrid teams={teams} selectedId={fields.team_id} onSelect={id => { setField('team_id', id); setField('player_id', null); }} compact />
+                    <TeamGrid teams={availableTeams} selectedId={fields.team_id} onSelect={id => { setField('team_id', id); setField('player_id', null); }} />
                   </div>
                   <div>
                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">Player</p>
@@ -1085,6 +1133,14 @@ export default function ContractBuilder({ editing, onSaved, onCancelEdit, onBulk
                 {TYPES_WITH_SEASON_WKT_TOTAL.has(type) && (
                   <NumInput label="Wickets this season" min={1} value={fields.threshold}
                             onChange={v => setField('threshold', v)} hint="e.g. 20" />
+                )}
+                {TYPES_WITH_MATCH_RUN_TOTAL.has(type) && (
+                  <NumInput label="Runs in this match" min={1} value={fields.threshold}
+                            onChange={v => setField('threshold', v)} hint="e.g. 50" />
+                )}
+                {TYPES_WITH_MATCH_WKT_TOTAL.has(type) && (
+                  <NumInput label="Wickets in this match" min={1} value={fields.threshold}
+                            onChange={v => setField('threshold', v)} hint="e.g. 2" />
                 )}
               </div>
 

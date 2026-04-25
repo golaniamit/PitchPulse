@@ -185,6 +185,8 @@ const VALID_TYPES = [
   'runs_over', 'wicket_over', 'team_total', 'batsman_milestone', 'boundary_over', 'manual',
   // earlier additions
   'toss_winner', 'match_winner', 'player_match_stat',
+  // Per-player match-long: runs scored / wickets taken across the whole match
+  'player_runs', 'player_wickets',
   // by_over additions
   'team_wickets_by_over', 'bowler_wickets_by_over',
   // powerplay

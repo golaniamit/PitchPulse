@@ -241,7 +241,7 @@ export function ContextBadge({ contract }) {
 
 // ── The card ───────────────────────────────────────────────────────
 
-export default function ContractCard({ contract, tourTarget }) {
+export default function ContractCard({ contract, matchInfo, tourTarget }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [stake, setStake] = useState(100);
@@ -265,6 +265,30 @@ export default function ContractCard({ contract, tourTarget }) {
 
   const sentimentPrice = contract.current_price;
   const typeLabel = TYPE_META[contract.type] || contract.type?.replace(/_/g, ' ');
+
+  // Eyebrow: prefer match context ("GT v MI · SAT, APR 26") when this contract
+  // is tagged to a match in our live IPL list. Season-long contracts show the
+  // season code ("IPL 26"). Everything else falls back to the type label.
+  const isLiveState = (s) => /in progress|innings break|toss/i.test(s || '');
+  const formatMatchEyebrow = (m) => {
+    if (!m || !m.teams || m.teams.length < 2) return null;
+    const a = m.teams[0]?.shortName, b = m.teams[1]?.shortName;
+    if (!a || !b) return null;
+    let date = null;
+    if (m.startDate) {
+      const d = new Date(Number(m.startDate));
+      if (!isNaN(d)) {
+        const day = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+        const md  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+        date = `${day}, ${md}`;
+      }
+    }
+    return { teams: `${a} v ${b}`, date, live: isLiveState(m.state) };
+  };
+  const matchEyebrow = matchInfo ? formatMatchEyebrow(matchInfo) : null;
+  const seasonEyebrow = contract.phase === 'season'
+    ? (contract.season_code ? contract.season_code.replace(/^IPL/, 'IPL ') : 'IPL 26')
+    : null;
 
   async function placeBet(side, price, e) {
     e.stopPropagation();
@@ -303,9 +327,31 @@ export default function ContractCard({ contract, tourTarget }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">
-              {typeLabel}
-            </span>
+            {matchEyebrow ? (
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+                {matchEyebrow.live && (
+                  <span className="relative inline-flex w-1.5 h-1.5">
+                    <span className="absolute inline-flex w-full h-full rounded-full bg-red-500 opacity-75 animate-ping" />
+                    <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-red-500" />
+                  </span>
+                )}
+                <span>{matchEyebrow.teams}</span>
+                {matchEyebrow.date && (
+                  <>
+                    <span className="text-gray-300 dark:text-gray-600">·</span>
+                    <span>{matchEyebrow.date}</span>
+                  </>
+                )}
+              </span>
+            ) : seasonEyebrow ? (
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">
+                {seasonEyebrow}
+              </span>
+            ) : (
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">
+                {typeLabel}
+              </span>
+            )}
             {(contract.volume > 0 || contract.trader_count > 0) && (
               <>
                 <span className="text-gray-300 dark:text-gray-600 text-xs">·</span>
