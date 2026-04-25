@@ -187,20 +187,47 @@ export default function Home({ openTour, tourActive }) {
   // Set of match IDs currently in progress. Drives the "Live" tab filter.
   const liveMatchIds = useMemo(() => new Set((liveMatches || []).map(m => String(m.matchId))), [liveMatches]);
 
-  // Human label for the Live tab — single match shows teams, multi shows count,
-  // zero shows a neutral "Live" label (tab is still clickable but empty).
+  // The next upcoming IPL match — only computed when nothing is in progress.
+  // Lets the "Live" tab gracefully become "Upcoming" between matches and still
+  // surface the contracts admins have already prepped for the next game.
+  const upcomingMatch = useMemo(() => {
+    if (liveMatchIds.size > 0) return null;
+    const candidates = (allMatches || [])
+      .filter(m => /preview|upcoming/i.test(m.state || ''))
+      .sort((a, b) => (a.startDate || 0) - (b.startDate || 0));
+    return candidates[0] || null;
+  }, [liveMatchIds, allMatches]);
+
+  // Match ids the second tab buckets against — live matches when any are
+  // in progress, otherwise the single next upcoming match.
+  const focusMatchIds = useMemo(() => {
+    if (liveMatchIds.size > 0) return liveMatchIds;
+    return upcomingMatch ? new Set([String(upcomingMatch.matchId)]) : new Set();
+  }, [liveMatchIds, upcomingMatch]);
+
+  const isUpcomingMode = liveMatchIds.size === 0 && !!upcomingMatch;
+
+  // Human label for the Live/Upcoming tab — shows the matchup teams when we
+  // have a target match, otherwise a neutral label that still reads as the
+  // empty tab we used to render.
   const liveLabel = useMemo(() => {
-    const liveContracts = contracts.filter(c => c.match_id && liveMatchIds.has(String(c.match_id)));
-    if (liveContracts.length === 0 || liveMatches.length === 0) return null;
-    // Pick the first live match that has contracts tagged to it
-    for (const m of liveMatches) {
-      if (liveContracts.some(c => String(c.match_id) === String(m.matchId))) {
-        const teams = (m.teams || []).map(t => t.shortName).filter(Boolean).join(' vs ');
-        return teams || 'Match';
+    if (liveMatchIds.size > 0) {
+      const liveContracts = contracts.filter(c => c.match_id && liveMatchIds.has(String(c.match_id)));
+      if (liveContracts.length === 0) return null;
+      for (const m of liveMatches) {
+        if (liveContracts.some(c => String(c.match_id) === String(m.matchId))) {
+          const teams = (m.teams || []).map(t => t.shortName).filter(Boolean).join(' vs ');
+          return teams || 'Match';
+        }
       }
+      return 'Match';
     }
-    return 'Match';
-  }, [contracts, liveMatches, liveMatchIds]);
+    if (upcomingMatch) {
+      const teams = (upcomingMatch.teams || []).map(t => t.shortName).filter(Boolean).join(' vs ');
+      return teams || 'Upcoming';
+    }
+    return null;
+  }, [contracts, liveMatches, liveMatchIds, upcomingMatch]);
 
   // Tab-level buckets (counts shown on each tab label). "All" excludes resolved
   // so the default view stays tradeable-only; resolved contracts live behind
@@ -209,12 +236,12 @@ export default function Home({ openTour, tourActive }) {
     const buckets = { all: [], live: [], season: [], resolved: [] };
     for (const c of contracts) {
       if (c.status === 'active') buckets.all.push(c);
-      if (c.match_id && liveMatchIds.has(String(c.match_id)) && c.status === 'active') buckets.live.push(c);
+      if (c.match_id && focusMatchIds.has(String(c.match_id)) && c.status === 'active') buckets.live.push(c);
       if (c.phase === 'season' && c.status === 'active') buckets.season.push(c);
       if (c.status === 'resolved') buckets.resolved.push(c);
     }
     return buckets;
-  }, [contracts, liveMatchIds]);
+  }, [contracts, focusMatchIds]);
 
   // Distinct match_ids present across all contracts (for the Match filter dropdown)
   const matchOptions = useMemo(() => {
@@ -245,7 +272,7 @@ export default function Home({ openTour, tourActive }) {
   // everyone else shows their count. Keeps line-2 content uniform in length.
   const tabDefs = [
     { id: 'all',      label: 'All',       subtitle: `(${tabBuckets.all.length})` },
-    { id: 'live',     label: 'Live',      subtitle: liveLabel || `(${tabBuckets.live.length})`, accent: !!liveLabel },
+    { id: 'live',     label: isUpcomingMode ? 'Upcoming' : 'Live', subtitle: liveLabel || `(${tabBuckets.live.length})`, accent: !!liveLabel },
     { id: 'season',   label: 'Season',    subtitle: `(${tabBuckets.season.length})` },
     { id: 'resolved', label: 'Resolved',  subtitle: `(${tabBuckets.resolved.length})` },
   ];
