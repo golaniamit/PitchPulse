@@ -27,19 +27,47 @@ const DIRECTIVES = [
   'When the sentence mentions a phase like "powerplay", "death overs", or "this over", set the matching phase + type — do not fall back to a custom_* type unless the question genuinely doesn\'t fit any structured type.',
   'CRITICAL — "by" vs "in" distinguishes cumulative from single-over: "by the 11th", "by over 11", "by end of over 11", "after 11 overs" all mean CUMULATIVE TEAM TOTAL up to that point → use phase "by_over" with type "team_total" (or team_wickets_by_over for wickets). Versus "in over 11", "during over 11", "this over" which mean a SINGLE over → use phase "over" with type "runs_over" (or wicket_over).',
   'Cross-check the threshold against the type: a single over rarely sees more than ~30 runs, so a threshold of 50, 100, 120, 150+ almost certainly means the question is cumulative (team_total / by_over), not runs_over.',
+  'CONTEXT-FILLING — sentences are often elliptical (e.g. just "120 by 12th", "3 wickets by 8", "50+ in powerplay"). Use the LIVE MATCH context to fill in missing pieces: the implied SUBJECT is the currently-batting team, the implied VERB is "score" for run-thresholds and "lose wickets" for wicket-thresholds, and the implied MATCH is the live match. Reconstruct a full yes/no title even when the input is just numbers + a phrase.',
+  'When the sentence mentions a specific team that ISN\'T currently batting (e.g. "DC to win toss" while MI is batting), do NOT default to the batting team — use the team named in the sentence. The batting-team default only applies when the sentence omits the subject entirely.',
+  'CRITICAL — once you resolve a team (named or inferred from the batting context), you MUST set BOTH "team_short" at the top level AND "condition.team" to that short_code. Never leave team_short null when a team is identifiable. Use the resolved team\'s actual short_code or full name in the title — never write generic phrases like "the batting team" or "the team" in the title.',
 ];
 
-// Concrete example pairs the model can pattern-match against. Helps the
-// 14B disambiguate edge cases that pure description didn't catch.
-const PHRASE_EXAMPLES = `
-"Will MI score 120 by the 11th?"        → type=team_total,    phase=by_over,   over=11, threshold=120
-"Will MI score 120 by over 11?"          → type=team_total,    phase=by_over,   over=11, threshold=120
-"Will MI score 12+ in over 11?"          → type=runs_over,     phase=over,      over_number=11, threshold=12
-"Will MI lose 2+ wickets in the powerplay?" → type=wickets_powerplay, phase=powerplay, threshold=2
-"Will CSK lose a wicket in over 5?"      → type=wicket_over,   phase=over,      over_number=5, threshold=1
-"Will MI lose 3+ wickets by over 10?"    → type=team_wickets_by_over, phase=by_over, over=10, threshold=3
-"Will Rohit score 30+ in this match?"    → type=player_runs,   phase=match,     threshold=30
-`.trim();
+// Concrete JSON examples — fully resolved with the actual batting-team
+// short_code substituted in. Showing the exact target shape (rather than
+// "→ type=X, team=<batting team>" shorthand) stops the model from emitting
+// placeholder text like "<batting team>" in its output.
+function buildPhraseExamples(battingTeam, matchId) {
+  // Use whatever is live; fall back to a clearly-marked example team if
+  // there's no live match so the format itself stays informative.
+  const T = battingTeam || 'MI';
+  const M = matchId || 'EXAMPLE_MATCH_ID';
+  // Each example is a labelled (input, output) pair so the model learns the
+  // mapping rather than treating examples as a general template.
+  return `
+Input: "Will MI score 50+ in the powerplay?"
+Output: {"title":"Will MI score 50+ in the powerplay?","type":"runs_powerplay","phase":"powerplay","subject_kind":"team","team_short":"MI","opponent_team_short":null,"player_name":null,"match_id":"${M}","over_number":null,"innings_number":null,"resolve_mode":"auto","condition":{"type":"runs_powerplay","team":"MI","operator":">=","threshold":50,"over":null,"min_wickets":null,"boundary_type":null,"boundary_count":null,"milestone":null}}
+
+Input: "Will MI score 12+ in over 11?"
+Output: {"title":"Will MI score 12+ runs in over 11?","type":"runs_over","phase":"over","subject_kind":"team","team_short":"MI","opponent_team_short":null,"player_name":null,"match_id":"${M}","over_number":11,"innings_number":null,"resolve_mode":"auto","condition":{"type":"runs_over","team":"MI","operator":">=","threshold":12,"over":11,"min_wickets":null,"boundary_type":null,"boundary_count":null,"milestone":null}}
+
+Input: "Will Rohit score 30+ in this match?"
+Output: {"title":"Will Rohit score 30+ runs in this match?","type":"player_runs","phase":"match","subject_kind":"player","team_short":"MI","opponent_team_short":null,"player_name":"Rohit","match_id":"${M}","over_number":null,"innings_number":null,"resolve_mode":"auto","condition":{"type":"player_runs","team":"MI","operator":">=","threshold":30,"over":null,"min_wickets":null,"boundary_type":null,"boundary_count":null,"milestone":null}}
+
+ELLIPTICAL SHORTHAND (batting team here is "${T}" — substitute the LIVE batting team in your output):
+
+Input: "120 by 12th"
+Output: {"title":"Will ${T} score 120 by the 12th over?","type":"team_total","phase":"by_over","subject_kind":"team","team_short":"${T}","opponent_team_short":null,"player_name":null,"match_id":"${M}","over_number":12,"innings_number":null,"resolve_mode":"auto","condition":{"type":"team_total","team":"${T}","operator":">=","threshold":120,"over":12,"min_wickets":null,"boundary_type":null,"boundary_count":null,"milestone":null}}
+
+Input: "3 wickets by 8"
+Output: {"title":"Will ${T} lose 3+ wickets by over 8?","type":"team_wickets_by_over","phase":"by_over","subject_kind":"team","team_short":"${T}","opponent_team_short":null,"player_name":null,"match_id":"${M}","over_number":8,"innings_number":null,"resolve_mode":"auto","condition":{"type":"team_wickets_by_over","team":"${T}","operator":">=","threshold":null,"over":8,"min_wickets":3,"boundary_type":null,"boundary_count":null,"milestone":null}}
+
+Input: "50+ in powerplay"
+Output: {"title":"Will ${T} score 50+ runs in the powerplay?","type":"runs_powerplay","phase":"powerplay","subject_kind":"team","team_short":"${T}","opponent_team_short":null,"player_name":null,"match_id":"${M}","over_number":null,"innings_number":null,"resolve_mode":"auto","condition":{"type":"runs_powerplay","team":"${T}","operator":">=","threshold":50,"over":null,"min_wickets":null,"boundary_type":null,"boundary_count":null,"milestone":null}}
+
+Input: "a wicket in 7"
+Output: {"title":"Will ${T} lose a wicket in over 7?","type":"wicket_over","phase":"over","subject_kind":"team","team_short":"${T}","opponent_team_short":null,"player_name":null,"match_id":"${M}","over_number":7,"innings_number":null,"resolve_mode":"auto","condition":{"type":"wicket_over","team":"${T}","operator":">=","threshold":null,"over":7,"min_wickets":1,"boundary_type":null,"boundary_count":null,"milestone":null}}
+  `.trim();
+}
 
 const TYPE_CATALOG = `
 - runs_over (phase: over, subject: team) — Team scores N+ runs in a SPECIFIC over (over_number required)
@@ -62,15 +90,52 @@ const TYPE_CATALOG = `
 - manual (phase: match, subject: match_generic) — Free-text question; resolve_mode must be "manual"
 `.trim();
 
+// Richer live-match snapshot for the prompt. The parser uses the batting/
+// bowling split to fill in elliptical sentences like "120 by 12th" → the
+// implied subject is whoever is batting right now.
 function getLiveMatchContext() {
   const matchId = process.env.CRIC_MATCH_ID;
   if (!matchId || matchId === 'the_match_id_for_todays_game') return null;
   const data = getCachedMatchData();
+
+  // No cache yet (resolver hasn't polled) — fall back to env-only basics.
+  if (!data) {
+    const teamsRaw = (process.env.CRIC_MATCH_TEAMS || '').split('|').filter(Boolean);
+    return {
+      matchId,
+      matchName: process.env.CRIC_MATCH_NAME || matchId,
+      teams: teamsRaw,
+      battingTeam: null,
+      bowlingTeam: null,
+      currentScore: null,
+      currentOvers: null,
+      status: null,
+      format: null,
+    };
+  }
+
+  const teamObjs = data.teams || [];
+  const teamNames = teamObjs.map(t => t.shortName || t.name).filter(Boolean);
+  const batting = data.current?.batTeamId
+    ? teamObjs.find(t => t.id === data.current.batTeamId) || null
+    : null;
+  const bowling = batting
+    ? teamObjs.find(t => t.id !== batting.id) || null
+    : null;
+  const lastInnings = data.innings?.[data.innings.length - 1];
+
   return {
     matchId,
-    matchName: data?.name || process.env.CRIC_MATCH_NAME || matchId,
-    teams: data?.teams || (process.env.CRIC_MATCH_TEAMS || '').split('|').filter(Boolean),
-    status: data?.status || null,
+    matchName: data.name || process.env.CRIC_MATCH_NAME || matchId,
+    teams: teamNames,
+    battingTeam: batting ? (batting.shortName || batting.name) : null,
+    bowlingTeam: bowling ? (bowling.shortName || bowling.name) : null,
+    currentScore: data.current
+      ? `${data.current.batTeamScore ?? '?'}/${data.current.batTeamWkts ?? '?'}`
+      : null,
+    currentOvers: lastInnings?.overs ?? null,
+    status: data.status || data.state || null,
+    format: data.format || null,
   };
 }
 
@@ -89,11 +154,15 @@ ${TYPE_CATALOG}
 PHASES: over, by_over, powerplay, death, match
 SUBJECT KINDS: team, player, matchup, match_generic
 
-${live ? `LIVE MATCH CONTEXT (use unless the sentence specifies a different match):
+${live ? `LIVE MATCH CONTEXT (treat as the default for any unspecified detail):
 - match_id: "${live.matchId}"
 - name: ${live.matchName}
-- teams playing: ${live.teams.join(' vs ')}
-- status: ${live.status || 'unknown'}` : 'NO MATCH IS CURRENTLY LIVE — leave match_id null unless the sentence names one.'}
+- teams: ${live.teams.length ? live.teams.join(' vs ') : 'unknown'}
+- currently batting: ${live.battingTeam || 'unknown'}
+- currently bowling: ${live.bowlingTeam || 'unknown'}
+- current score: ${live.currentScore ? `${live.currentScore} (${live.currentOvers ?? 0} overs)` : 'not started'}
+- status: ${live.status || 'unknown'}
+- format: ${live.format || 'T20'}` : 'NO MATCH IS CURRENTLY LIVE — leave match_id null unless the sentence names one.'}
 
 TEAMS IN DATABASE (use the short_code, e.g. "MI", in team_short / opponent_team_short):
 ${getTeamCatalog()}
@@ -101,8 +170,8 @@ ${getTeamCatalog()}
 DIRECTIVES (follow these exactly):
 ${DIRECTIVES.map((d, i) => `${i + 1}. ${d}`).join('\n')}
 
-EXAMPLES (study the pattern → output mapping):
-${PHRASE_EXAMPLES}
+EXAMPLES (study the input → JSON-output mapping carefully — match this format exactly):
+${buildPhraseExamples(live?.battingTeam, live?.matchId)}
 
 OUTPUT — return ONLY this JSON object, no commentary, no markdown fences:
 {
