@@ -30,6 +30,7 @@ const DIRECTIVES = [
   'CONTEXT-FILLING — sentences are often elliptical (e.g. just "120 by 12th", "3 wickets by 8", "50+ in powerplay"). Use the LIVE MATCH context to fill in missing pieces: the implied SUBJECT is the currently-batting team, the implied VERB is "score" for run-thresholds and "lose wickets" for wicket-thresholds, and the implied MATCH is the live match. Reconstruct a full yes/no title even when the input is just numbers + a phrase.',
   'When the sentence mentions a specific team that ISN\'T currently batting (e.g. "DC to win toss" while MI is batting), do NOT default to the batting team — use the team named in the sentence. The batting-team default only applies when the sentence omits the subject entirely.',
   'CRITICAL — once you resolve a team (named or inferred from the batting context), you MUST set BOTH "team_short" at the top level AND "condition.team" to that short_code. Never leave team_short null when a team is identifiable. Use the resolved team\'s actual short_code or full name in the title — never write generic phrases like "the batting team" or "the team" in the title.',
+  'PLAYER CONTRACTS — for player_runs, player_wickets, batsman_milestone, bowler_wickets_by_over: the named player can be on EITHER side of the live match (a bowler will usually be from the BOWLING side, a batsman from the BATTING side). Do NOT assume the player is on the batting team. If you are unsure which side the player belongs to, leave team_short null — the server resolves the player\'s actual team from its roster and will fill team_short in for you. Never invent a team that isn\'t playing the live match.',
 ];
 
 // Concrete JSON examples — fully resolved with the actual batting-team
@@ -270,7 +271,7 @@ async function parseSentence(sentence) {
 // STRING because the builder calls JSON.parse() on it.
 function toContractDraft(parsed) {
   const teams   = db.prepare('SELECT id, short_code, name FROM teams').all();
-  const players = db.prepare('SELECT id, name FROM players').all();
+  const players = db.prepare('SELECT id, name, team_id FROM players').all();
 
   // Standard Levenshtein. Returns edit distance between two lowercase strings.
   function lev(a, b) {
@@ -358,19 +359,43 @@ function toContractDraft(parsed) {
   const opponent = findTeam(parsed.opponent_team_short);
   const player   = findPlayer(parsed.player_name);
 
+  // For player contracts, the player's actual roster team beats whatever the
+  // model put in team_short — the model often hallucinates the team or
+  // defaults to whoever is batting, even when the player is on the bowling
+  // side. The DB's player.team_id is authoritative within a season; we skip
+  // this override for season-phase contracts since rosters can shift between
+  // seasons.
+  const PLAYER_TYPES = new Set(['player_runs', 'player_wickets', 'batsman_milestone', 'bowler_wickets_by_over']);
+  const isPlayerContract = parsed.subject_kind === 'player' || PLAYER_TYPES.has(parsed.type);
+  let effectiveTeam = team;
+  if (player && isPlayerContract && parsed.phase !== 'season') {
+    const rosterTeam = teams.find(t => t.id === player.team_id) || null;
+    if (rosterTeam) effectiveTeam = rosterTeam;
+  }
+
+  // Patch the condition's `team` to match whatever team we ended up with —
+  // otherwise the resolver would settle against whichever name the model
+  // emitted, even when we corrected it above.
+  let conditionJson = null;
+  if (parsed.condition) {
+    const cond = { ...parsed.condition };
+    if (effectiveTeam) cond.team = effectiveTeam.short_code;
+    conditionJson = JSON.stringify(cond);
+  }
+
   return {
     title: parsed.title || '',
     type: parsed.type || null,
     phase: parsed.phase || null,
     subject_kind: parsed.subject_kind || null,
-    team_id: team?.id || null,
+    team_id: effectiveTeam?.id || null,
     opponent_team_id: opponent?.id || null,
     player_id: player?.id || null,
     match_id: parsed.match_id || null,
     over_number: parsed.over_number ?? null,
     innings_number: parsed.innings_number ?? null,
     resolve_mode: parsed.resolve_mode || 'auto',
-    condition_json: parsed.condition ? JSON.stringify(parsed.condition) : null,
+    condition_json: conditionJson,
   };
 }
 
